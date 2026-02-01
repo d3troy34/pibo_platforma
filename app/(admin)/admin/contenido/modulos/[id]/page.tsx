@@ -59,7 +59,8 @@ export default function EditModuloPage() {
     reset,
     formState: { errors },
   } = useForm<ModuleForm>({
-    resolver: zodResolver(moduleSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(moduleSchema) as any,
   })
 
   const isPublished = watch("is_published")
@@ -432,7 +433,8 @@ function LessonFormModal({
     watch,
     formState: { errors },
   } = useForm<LessonForm>({
-    resolver: zodResolver(lessonSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(lessonSchema) as any,
     defaultValues: lesson ? {
       title: lesson.title,
       description: lesson.description || "",

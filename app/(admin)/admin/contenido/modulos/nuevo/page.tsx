@@ -38,7 +38,8 @@ export default function NuevoModuloPage() {
     watch,
     formState: { errors },
   } = useForm<ModuleForm>({
-    resolver: zodResolver(moduleSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(moduleSchema) as any,
     defaultValues: {
       title: "",
       description: "",
