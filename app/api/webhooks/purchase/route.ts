@@ -34,6 +34,12 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
     .update(payload)
     .digest("hex")
 
+  // DEBUG: Remove after testing
+  console.log("WEBHOOK_DEBUG: secret set:", !!secret, "secret starts:", secret.substring(0, 8))
+  console.log("WEBHOOK_DEBUG: payload:", payload)
+  console.log("WEBHOOK_DEBUG: expected:", expectedSignature.substring(0, 16), "received:", signature.substring(0, 16))
+  console.log("WEBHOOK_DEBUG: match:", signature === expectedSignature)
+
   return signature === expectedSignature
 }
 
