@@ -48,7 +48,7 @@ export default function EditModuloPage() {
   const [showLessonForm, setShowLessonForm] = useState(false)
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null)
   const router = useRouter()
-  const params = useParams()
+  const params = useParams<{ id: string }>()
   const supabase = createClient()
 
   const {

@@ -43,6 +43,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       modules: {
         Row: {
@@ -75,6 +76,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       lessons: {
         Row: {
@@ -122,6 +124,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       enrollments: {
         Row: {
@@ -169,6 +172,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       lesson_progress: {
         Row: {
@@ -204,6 +208,67 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
+      }
+      forum_posts: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          content: string
+          is_answered: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          content: string
+          is_answered?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          content?: string
+          is_answered?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      forum_replies: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string
+          content: string
+          is_admin_reply: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id: string
+          content: string
+          is_admin_reply?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string
+          content?: string
+          is_admin_reply?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       invitations: {
         Row: {
@@ -233,7 +298,11 @@ export type Database = {
           expires_at?: string
           created_at?: string
         }
+        Relationships: []
       }
+    }
+    Views: {
+      [_ in never]: never
     }
     Functions: {
       is_admin: {
@@ -244,6 +313,12 @@ export type Database = {
         Args: Record<string, never>
         Returns: boolean
       }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }

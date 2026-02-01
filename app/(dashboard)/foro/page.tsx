@@ -49,8 +49,8 @@ export default async function ForoPage() {
       <div className="space-y-4">
         {posts && posts.length > 0 ? (
           posts.map((post) => {
-            const author = post.profiles as { id: string; full_name: string | null; avatar_url: string | null; role: string } | null
-            const repliesCount = Array.isArray(post.forum_replies) ? post.forum_replies.length : 0
+            const author = (post as Record<string, unknown>).profiles as { id: string; full_name: string | null; avatar_url: string | null; role: string } | null
+            const repliesCount = Array.isArray((post as Record<string, unknown>).forum_replies) ? ((post as Record<string, unknown>).forum_replies as unknown[]).length : 0
 
             return (
               <Link key={post.id} href={`/foro/${post.id}`}>

@@ -53,13 +53,13 @@ export default async function PostDetailPage({ params }: PageProps) {
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", user?.id)
+    .eq("id", user?.id ?? "")
     .single()
 
   const isAdmin = currentProfile?.role === "admin"
   const isAuthor = user?.id === post.user_id
 
-  const author = post.profiles as Pick<Profile, "id" | "full_name" | "avatar_url" | "role"> | null
+  const author = (post as Record<string, unknown>).profiles as Pick<Profile, "id" | "full_name" | "avatar_url" | "role"> | null
 
   const getInitials = (name: string | null) => {
     if (!name) return "U"
@@ -138,7 +138,7 @@ export default async function PostDetailPage({ params }: PageProps) {
         {replies && replies.length > 0 ? (
           <div className="space-y-4">
             {replies.map((reply) => {
-              const replyAuthor = reply.profiles as Pick<Profile, "id" | "full_name" | "avatar_url" | "role"> | null
+              const replyAuthor = (reply as Record<string, unknown>).profiles as Pick<Profile, "id" | "full_name" | "avatar_url" | "role"> | null
               const isAdminReply = replyAuthor?.role === "admin"
 
               return (
