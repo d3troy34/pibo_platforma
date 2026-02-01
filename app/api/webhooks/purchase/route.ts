@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     const loginUrl = `${appUrl}/login`
 
     const { error: emailError } = await resend.emails.send({
-      from: "Mipibo <onboarding@resend.dev>",
+      from: "Mipibo <no-reply@mipibo.com>",
       to: email,
       subject: "Tus credenciales de acceso a Mipibo",
       html: `
