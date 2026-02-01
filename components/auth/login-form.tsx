@@ -69,6 +69,23 @@ export function LoginForm() {
         return
       }
 
+      // Check if user is admin to redirect accordingly
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.role === "admin") {
+          toast.success("Bienvenido de vuelta!")
+          router.push("/admin")
+          router.refresh()
+          return
+        }
+      }
+
       toast.success("Bienvenido de vuelta!")
       router.push(redirectTo)
       router.refresh()
@@ -139,7 +156,7 @@ export function LoginForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             No tienes una cuenta?{" "}
-            <Link href="https://www.mipibo.com" className="text-primary hover:underline">
+            <Link href="https://estudiaargentina.com" className="text-primary hover:underline">
               Comprar acceso
             </Link>
           </p>
