@@ -2,26 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Mipibo Dark Theme - basado en mipibo.com */
+    --background: 222.2 47.4% 11.2%; /* #0F172A */
+    --foreground: 210 40% 98%; /* #F0F9FF */
+
+    --card: 222.2 47.4% 11.2%; /* #0F172A */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 199 89% 73%; /* #7DD3FC cyan principal */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%; /* #1E293B */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%; /* #94A3B8 */
+
+    --accent: 187 71% 50%; /* #22D3EE cyan oscuro */
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 25%; /* Borde sutil */
+    --input: 217.2 32.6% 25%;
+    --ring: 199 89% 73%; /* cyan para focus */
+
+    --radius: 0.5rem;
+
+    /* Colores adicionales Mipibo */
+    --accent-light: 188 78% 68%; /* #67E8F9 */
+    --accent-blue: 217 91% 68%; /* #60A5FA */
+    --success: 158 64% 52%; /* #10B981 emerald */
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Gradiente para botones principales */
+.btn-gradient {
+  background: linear-gradient(to right, #60A5FA, #22D3EE);
+}
+.btn-gradient:hover {
+  background: linear-gradient(to right, #93C5FD, #67E8F9);
+}
+
+/* Efecto glow */
+.glow {
+  box-shadow: 0 0 20px rgba(125, 211, 252, 0.3);
+}
+.glow-lg {
+  box-shadow: 0 0 30px rgba(125, 211, 252, 0.4);
+}
+
+/* Gradiente de texto */
+.text-gradient {
+  background: linear-gradient(to right, #7DD3FC, #67E8F9, #F0F9FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Scrollbar personalizada para tema oscuro */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #1E293B;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }

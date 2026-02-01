@@ -1,0 +1,81 @@
+import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { Sidebar } from "@/components/dashboard/sidebar"
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  // Get profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isAdmin = (profile as any)?.role === "admin"
+
+  // Check enrollment (admins bypass this check)
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("payment_status", "completed")
+    .single()
+
+  // If not enrolled and not admin, show a message
+  if (!enrollment && !isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-bold">Acceso no disponible</h1>
+          <p className="text-muted-foreground">
+            Tu cuenta aun no tiene acceso al curso. Si ya realizaste tu compra,
+            por favor contacta a soporte.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Email: {user.email}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Calculate total progress
+  const { data: lessons } = await supabase
+    .from("lessons")
+    .select("id")
+    .eq("is_published", true)
+
+  const { data: progress } = await supabase
+    .from("lesson_progress")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("completed", true)
+
+  const totalLessons = lessons?.length || 0
+  const completedLessons = progress?.length || 0
+  const totalProgress = totalLessons > 0
+    ? Math.round((completedLessons / totalLessons) * 100)
+    : 0
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar user={profile} totalProgress={totalProgress} />
+      <main className="flex-1 overflow-y-auto">
+        <div className="container py-8 px-4 lg:px-8">
+          {children}
+        </div>
+      </main>
+    </div>
+  )
+}
