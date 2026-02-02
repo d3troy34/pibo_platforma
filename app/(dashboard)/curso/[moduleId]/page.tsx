@@ -44,14 +44,18 @@ export default async function ModulePage({ params }: ModulePageProps) {
     notFound()
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: progressData } = await (supabase.from("module_progress") as any)
-    .select("*")
-    .eq("user_id", user!.id)
-    .eq("module_id", params.moduleId)
-    .single()
-
-  const progress = progressData as ModuleProgress | null
+  let progress: ModuleProgress | null = null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: progressData } = await (supabase.from("module_progress") as any)
+      .select("*")
+      .eq("user_id", user!.id)
+      .eq("module_id", params.moduleId)
+      .single()
+    progress = progressData as ModuleProgress | null
+  } catch {
+    // table may not exist yet
+  }
 
   const resources = (courseModule.resources as LessonResource[]) || []
 

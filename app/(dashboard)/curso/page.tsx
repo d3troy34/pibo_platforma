@@ -19,14 +19,18 @@ export default async function CoursePage() {
 
   const modules = modulesData as Module[] | null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: progressData } = await (supabase.from("module_progress") as any)
-    .select("module_id, completed")
-    .eq("user_id", user!.id)
-    .eq("completed", true)
-
-  const progress = progressData as Pick<ModuleProgress, "module_id" | "completed">[] | null
-  const completedModuleIds = new Set(progress?.map((p) => p.module_id) || [])
+  let completedModuleIds = new Set<string>()
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: progressData } = await (supabase.from("module_progress") as any)
+      .select("module_id, completed")
+      .eq("user_id", user!.id)
+      .eq("completed", true)
+    const progress = progressData as Pick<ModuleProgress, "module_id" | "completed">[] | null
+    completedModuleIds = new Set(progress?.map((p) => p.module_id) || [])
+  } catch {
+    // table may not exist yet
+  }
 
   return (
     <div className="space-y-8">

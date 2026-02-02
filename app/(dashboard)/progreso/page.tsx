@@ -24,12 +24,16 @@ export default async function ProgressPage() {
   const modules = modulesData as Module[] | null
 
   // Get all module progress
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: progressData } = await (supabase.from("module_progress") as any)
-    .select("*")
-    .eq("user_id", user!.id)
-
-  const progress = progressData as ModuleProgress[] | null
+  let progress: ModuleProgress[] | null = null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: progressData } = await (supabase.from("module_progress") as any)
+      .select("*")
+      .eq("user_id", user!.id)
+    progress = progressData as ModuleProgress[] | null
+  } catch {
+    // table may not exist yet
+  }
 
   const progressMap = new Map(progress?.map((p) => [p.module_id, p]) || [])
 
