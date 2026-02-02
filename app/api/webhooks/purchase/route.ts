@@ -9,6 +9,7 @@ interface PurchaseWebhookPayload {
   purchase_id: string
   amount?: number
   currency?: string
+  payment_provider?: string
   timestamp?: string
   signature: string
 }
@@ -33,13 +34,6 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
   const expectedSignature = createHmac("sha256", secret)
     .update(payload)
     .digest("hex")
-
-  // DEBUG: Remove after testing
-  console.log("WEBHOOK_DEBUG: secret set:", !!secret, "secret starts:", secret.substring(0, 8))
-  console.log("WEBHOOK_DEBUG: payload:", payload)
-  console.log("WEBHOOK_DEBUG: expected:", expectedSignature.substring(0, 16), "received:", signature.substring(0, 16))
-  console.log("WEBHOOK_DEBUG: match:", signature === expectedSignature)
-
   return signature === expectedSignature
 }
 
@@ -57,7 +51,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, full_name, purchase_id, amount, currency, signature } = body
+    const { email, full_name, purchase_id, amount, currency, payment_provider, signature } = body
 
     // Validate required fields
     if (!email || !full_name || !purchase_id || !signature) {
@@ -106,7 +100,7 @@ export async function POST(request: NextRequest) {
         await (supabaseAdmin.from("enrollments") as any)
           .insert({
             user_id: existingProfile.id,
-            payment_provider: "manual",
+            payment_provider: payment_provider || "manual",
             payment_id: purchase_id,
             payment_status: "completed",
             payment_method: "mipibo_purchase",
@@ -156,7 +150,7 @@ export async function POST(request: NextRequest) {
             await (supabaseAdmin.from("enrollments") as any)
               .insert({
                 user_id: existingUser.id,
-                payment_provider: "manual",
+                payment_provider: payment_provider || "manual",
                 payment_id: purchase_id,
                 payment_status: "completed",
                 payment_method: "mipibo_purchase",
@@ -196,7 +190,7 @@ export async function POST(request: NextRequest) {
     const { error: enrollmentError } = await (supabaseAdmin.from("enrollments") as any)
       .insert({
         user_id: userId,
-        payment_provider: "manual",
+        payment_provider: payment_provider || "manual",
         payment_id: purchase_id,
         payment_status: "completed",
         payment_method: "mipibo_purchase",
