@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { ArrowLeft, Loader2, Plus, Video, Trash2, Pencil, Eye, EyeOff, FileText, Upload, X as XIcon } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, FileText, Upload, X as XIcon } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -29,11 +29,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { createClient } from "@/lib/supabase/client"
-import type { Module, Lesson, LessonResource } from "@/types/database"
+import type { Module, LessonResource } from "@/types/database"
 
 const moduleSchema = z.object({
   title: z.string().min(1, "El titulo es requerido"),
   description: z.string().optional(),
+  bunny_video_guid: z.string().optional(),
+  duration_seconds: z.coerce.number().min(0).optional(),
   order_index: z.coerce.number().min(0, "El orden debe ser mayor o igual a 0"),
   is_published: z.boolean(),
 })
@@ -43,10 +45,9 @@ type ModuleForm = z.infer<typeof moduleSchema>
 export default function EditModuloPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [module, setModule] = useState<Module | null>(null)
-  const [lessons, setLessons] = useState<Lesson[]>([])
-  const [showLessonForm, setShowLessonForm] = useState(false)
-  const [editingLesson, setEditingLesson] = useState<Lesson | null>(null)
+  const [resources, setResources] = useState<LessonResource[]>([])
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const supabase = createClient()
@@ -75,22 +76,15 @@ export default function EditModuloPage() {
 
       if (moduleData) {
         setModule(moduleData)
+        setResources((moduleData.resources as LessonResource[] | null) || [])
         reset({
           title: moduleData.title,
           description: moduleData.description || "",
+          bunny_video_guid: moduleData.bunny_video_guid || "",
+          duration_seconds: moduleData.duration_seconds || 0,
           order_index: moduleData.order_index,
           is_published: moduleData.is_published,
         })
-      }
-
-      const { data: lessonsData } = await supabase
-        .from("lessons")
-        .select("*")
-        .eq("module_id", params.id)
-        .order("order_index", { ascending: true })
-
-      if (lessonsData) {
-        setLessons(lessonsData)
       }
     }
 
@@ -105,6 +99,9 @@ export default function EditModuloPage() {
         .update({
           title: data.title,
           description: data.description || null,
+          bunny_video_guid: data.bunny_video_guid || null,
+          duration_seconds: data.duration_seconds || 0,
+          resources,
           order_index: data.order_index,
           is_published: data.is_published,
         })
@@ -141,37 +138,66 @@ export default function EditModuloPage() {
     }
   }
 
-  const handleToggleLessonPublish = async (lesson: Lesson) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
     try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("moduleId", params.id as string)
+
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Error al subir archivo")
+        return
+      }
+
+      const newResources = [...resources, result.resource]
+      setResources(newResources)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("lessons") as any)
-        .update({ is_published: !lesson.is_published })
-        .eq("id", lesson.id)
+      await (supabase.from("modules") as any)
+        .update({ resources: newResources })
+        .eq("id", params.id)
 
-      if (error) throw error
-
-      setLessons(lessons.map(l =>
-        l.id === lesson.id ? { ...l, is_published: !l.is_published } : l
-      ))
-      toast.success(lesson.is_published ? "Leccion despublicada" : "Leccion publicada")
+      toast.success("Archivo subido")
     } catch {
-      toast.error("Error al cambiar estado")
+      toast.error("Error al subir archivo")
+    } finally {
+      setIsUploading(false)
+      e.target.value = ""
     }
   }
 
-  const handleDeleteLesson = async (lessonId: string) => {
+  const handleDeleteResource = async (index: number) => {
+    const resource = resources[index]
+
     try {
+      await fetch("/api/admin/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: resource.url }),
+      })
+
+      const newResources = resources.filter((_, i) => i !== index)
+      setResources(newResources)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("lessons") as any)
-        .delete()
-        .eq("id", lessonId)
+      await (supabase.from("modules") as any)
+        .update({ resources: newResources })
+        .eq("id", params.id)
 
-      if (error) throw error
-
-      setLessons(lessons.filter(l => l.id !== lessonId))
-      toast.success("Leccion eliminada")
+      toast.success("Archivo eliminado")
     } catch {
-      toast.error("Error al eliminar la leccion")
+      toast.error("Error al eliminar archivo")
     }
   }
 
@@ -185,7 +211,6 @@ export default function EditModuloPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/admin/contenido">
@@ -209,7 +234,7 @@ export default function EditModuloPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Eliminar modulo</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta accion no se puede deshacer. Se eliminaran todas las lecciones asociadas.
+                Esta accion no se puede deshacer.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -222,8 +247,7 @@ export default function EditModuloPage() {
         </AlertDialog>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Module Form */}
+      <div className="max-w-2xl">
         <Card className="border-border/50 bg-card/50">
           <CardHeader>
             <CardTitle>Informacion del Modulo</CardTitle>
@@ -244,17 +268,35 @@ export default function EditModuloPage() {
                 <Textarea id="description" rows={4} {...register("description")} />
               </div>
 
+              <Separator />
+
               <div className="space-y-2">
-                <Label htmlFor="order_index">Orden</Label>
-                <Input id="order_index" type="number" min={0} {...register("order_index")} />
+                <Label htmlFor="bunny_video_guid">Bunny Video GUID</Label>
+                <Input
+                  id="bunny_video_guid"
+                  placeholder="ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  {...register("bunny_video_guid")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  El GUID del video en Bunny.net Stream
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="duration_seconds">Duracion (segundos)</Label>
+                  <Input id="duration_seconds" type="number" min={0} {...register("duration_seconds")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="order_index">Orden</Label>
+                  <Input id="order_index" type="number" min={0} {...register("order_index")} />
+                </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div className="space-y-0.5">
                   <Label htmlFor="is_published">Publicado</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Visible para estudiantes
-                  </p>
+                  <p className="text-sm text-muted-foreground">Visible para estudiantes</p>
                 </div>
                 <Switch
                   id="is_published"
@@ -263,420 +305,43 @@ export default function EditModuloPage() {
                 />
               </div>
 
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar Cambios
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <Separator />
 
-        {/* Lessons List */}
-        <Card className="border-border/50 bg-card/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Lecciones</CardTitle>
-                <CardDescription>{lessons.length} lecciones en este modulo</CardDescription>
-              </div>
-              <Button size="sm" className="gap-2" onClick={() => setShowLessonForm(true)}>
-                <Plus className="h-4 w-4" />
-                Nueva
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {lessons.length > 0 ? (
+              {/* Resources */}
               <div className="space-y-3">
-                {lessons.map((lesson, index) => (
-                  <div
-                    key={lesson.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/20 text-primary text-xs font-bold">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{lesson.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {lesson.bunny_video_guid ? (
-                            <Badge variant="outline" className="text-xs">
-                              <Video className="h-3 w-3 mr-1" />
-                              Video
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Sin video</Badge>
-                          )}
-                          {lesson.is_published ? (
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                              Publicado
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Borrador</Badge>
-                          )}
+                <Label className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Recursos (PDF, PowerPoint, Word)
+                </Label>
+
+                {resources.length > 0 && (
+                  <div className="space-y-2">
+                    {resources.map((resource, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 text-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-primary shrink-0" />
+                          <span className="truncate">{resource.name}</span>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {resource.type.toUpperCase()}
+                          </Badge>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive shrink-0"
+                          onClick={() => handleDeleteResource(index)}
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </Button>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleToggleLessonPublish(lesson)}
-                      >
-                        {lesson.is_published ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditingLesson(lesson)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Eliminar leccion</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta accion no se puede deshacer.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteLesson(lesson.id)}>
-                              Eliminar
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Video className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No hay lecciones en este modulo
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                )}
 
-      {/* Lesson Form Modal */}
-      {(showLessonForm || editingLesson) && (
-        <LessonFormModal
-          moduleId={params.id as string}
-          lesson={editingLesson}
-          onClose={() => {
-            setShowLessonForm(false)
-            setEditingLesson(null)
-          }}
-          onSave={(lesson) => {
-            if (editingLesson) {
-              setLessons(lessons.map(l => l.id === lesson.id ? lesson : l))
-            } else {
-              setLessons([...lessons, lesson])
-            }
-            setShowLessonForm(false)
-            setEditingLesson(null)
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-// Lesson Form Modal Component
-function LessonFormModal({
-  moduleId,
-  lesson,
-  onClose,
-  onSave,
-}: {
-  moduleId: string
-  lesson: Lesson | null
-  onClose: () => void
-  onSave: (lesson: Lesson) => void
-}) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const [resources, setResources] = useState<LessonResource[]>(
-    (lesson?.resources as LessonResource[] | null) || []
-  )
-  const supabase = createClient()
-
-  const lessonSchema = z.object({
-    title: z.string().min(1, "El titulo es requerido"),
-    description: z.string().optional(),
-    bunny_video_guid: z.string().optional(),
-    duration_seconds: z.coerce.number().min(0).optional(),
-    order_index: z.coerce.number().min(0),
-    is_published: z.boolean(),
-  })
-
-  type LessonForm = z.infer<typeof lessonSchema>
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<LessonForm>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(lessonSchema) as any,
-    defaultValues: lesson ? {
-      title: lesson.title,
-      description: lesson.description || "",
-      bunny_video_guid: lesson.bunny_video_guid || "",
-      duration_seconds: lesson.duration_seconds,
-      order_index: lesson.order_index,
-      is_published: lesson.is_published,
-    } : {
-      title: "",
-      description: "",
-      bunny_video_guid: "",
-      duration_seconds: 0,
-      order_index: 0,
-      is_published: false,
-    },
-  })
-
-  const isPublished = watch("is_published")
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Need a saved lesson to attach files
-    if (!lesson) {
-      toast.error("Primero guardá la lección, luego podrás subir archivos")
-      e.target.value = ""
-      return
-    }
-
-    setIsUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("lessonId", lesson.id)
-
-      const response = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData,
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error(result.error || "Error al subir archivo")
-        return
-      }
-
-      const newResources = [...resources, result.resource]
-      setResources(newResources)
-
-      // Update lesson resources in DB
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("lessons") as any)
-        .update({ resources: newResources })
-        .eq("id", lesson.id)
-
-      toast.success("Archivo subido")
-    } catch {
-      toast.error("Error al subir archivo")
-    } finally {
-      setIsUploading(false)
-      e.target.value = ""
-    }
-  }
-
-  const handleDeleteResource = async (index: number) => {
-    if (!lesson) return
-
-    const resource = resources[index]
-
-    try {
-      // Delete from storage
-      await fetch("/api/admin/upload", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: resource.url }),
-      })
-
-      const newResources = resources.filter((_, i) => i !== index)
-      setResources(newResources)
-
-      // Update lesson resources in DB
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("lessons") as any)
-        .update({ resources: newResources })
-        .eq("id", lesson.id)
-
-      toast.success("Archivo eliminado")
-    } catch {
-      toast.error("Error al eliminar archivo")
-    }
-  }
-
-  const onSubmit = async (data: LessonForm) => {
-    setIsLoading(true)
-    try {
-      if (lesson) {
-        // Update
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: updated, error } = await (supabase.from("lessons") as any)
-          .update({
-            title: data.title,
-            description: data.description || null,
-            bunny_video_guid: data.bunny_video_guid || null,
-            duration_seconds: data.duration_seconds || 0,
-            order_index: data.order_index,
-            is_published: data.is_published,
-            resources,
-          })
-          .eq("id", lesson.id)
-          .select()
-          .single()
-
-        if (error) throw error
-        onSave(updated)
-        toast.success("Leccion actualizada")
-      } else {
-        // Create
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: created, error } = await (supabase.from("lessons") as any)
-          .insert({
-            module_id: moduleId,
-            title: data.title,
-            description: data.description || null,
-            bunny_video_guid: data.bunny_video_guid || null,
-            duration_seconds: data.duration_seconds || 0,
-            order_index: data.order_index,
-            is_published: data.is_published,
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-        onSave(created)
-        toast.success("Leccion creada")
-      }
-    } catch {
-      toast.error("Error al guardar la leccion")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg border-border/50 bg-card max-h-[90vh] overflow-y-auto">
-        <CardHeader>
-          <CardTitle>{lesson ? "Editar Leccion" : "Nueva Leccion"}</CardTitle>
-          <CardDescription>
-            {lesson ? "Modifica los datos de la leccion" : "Agrega una nueva leccion al modulo"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="lesson-title">Titulo *</Label>
-              <Input id="lesson-title" {...register("title")} />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="lesson-description">Descripcion</Label>
-              <Textarea id="lesson-description" rows={3} {...register("description")} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bunny_video_guid">Bunny Video GUID</Label>
-              <Input
-                id="bunny_video_guid"
-                placeholder="ej: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-                {...register("bunny_video_guid")}
-              />
-              <p className="text-xs text-muted-foreground">
-                El GUID del video en Bunny.net Stream
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration_seconds">Duracion (segundos)</Label>
-                <Input id="duration_seconds" type="number" min={0} {...register("duration_seconds")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lesson-order">Orden</Label>
-                <Input id="lesson-order" type="number" min={0} {...register("order_index")} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border border-border p-3">
-              <Label htmlFor="lesson-published">Publicar leccion</Label>
-              <Switch
-                id="lesson-published"
-                checked={isPublished}
-                onCheckedChange={(checked) => setValue("is_published", checked)}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Resources / File Upload */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Recursos (PDF, PowerPoint, Word)
-              </Label>
-
-              {resources.length > 0 && (
-                <div className="space-y-2">
-                  {resources.map((resource, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 text-sm"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="h-4 w-4 text-primary shrink-0" />
-                        <span className="truncate">{resource.name}</span>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {resource.type.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive shrink-0"
-                        onClick={() => handleDeleteResource(index)}
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {lesson ? (
                 <div className="relative">
                   <input
                     type="file"
@@ -699,27 +364,16 @@ function LessonFormModal({
                     )}
                   </div>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Guardá la lección primero para poder subir archivos
-                </p>
-              )}
-            </div>
+              </div>
 
-            <Separator />
-
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isLoading} className="flex-1">
+              <Button type="submit" disabled={isLoading} className="w-full">
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {lesson ? "Guardar" : "Crear"}
+                Guardar Cambios
               </Button>
-              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react"
 
 interface VideoPlayerProps {
   videoGuid: string
-  lessonId: string
+  moduleId: string
   initialProgress?: number
   onProgressUpdate?: (seconds: number, duration: number) => void
   onComplete?: () => void
@@ -31,6 +31,7 @@ declare global {
 
 export function VideoPlayer({
   videoGuid,
+  moduleId,
   initialProgress = 0,
   onProgressUpdate,
   onComplete,
@@ -52,15 +53,29 @@ export function VideoPlayer({
       if (Math.abs(seconds - lastSavedRef.current) >= 5) {
         lastSavedRef.current = seconds
         onProgressUpdate?.(seconds, duration)
+
+        // Dispatch event for ModuleActions to pick up
+        window.dispatchEvent(
+          new CustomEvent(`video-progress-${moduleId}`, {
+            detail: { seconds, duration },
+          })
+        )
       }
 
       // Check for completion (90% watched)
       if (!completedRef.current && duration > 0 && seconds / duration >= 0.9) {
         completedRef.current = true
         onComplete?.()
+
+        // Dispatch completion event
+        window.dispatchEvent(
+          new CustomEvent(`video-progress-${moduleId}`, {
+            detail: { seconds, duration },
+          })
+        )
       }
     },
-    [onProgressUpdate, onComplete]
+    [moduleId, onProgressUpdate, onComplete]
   )
 
   useEffect(() => {

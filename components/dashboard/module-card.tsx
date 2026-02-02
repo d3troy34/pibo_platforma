@@ -1,28 +1,20 @@
 import Link from "next/link"
 import { PlayCircle, CheckCircle2, Lock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import type { Module } from "@/types/database"
 
 interface ModuleCardProps {
   module: Module
-  lessonCount: number
-  completedLessons: number
+  isCompleted: boolean
   isLocked?: boolean
 }
 
 export function ModuleCard({
   module,
-  lessonCount,
-  completedLessons,
+  isCompleted,
   isLocked = false,
 }: ModuleCardProps) {
-  const progress = lessonCount > 0
-    ? Math.round((completedLessons / lessonCount) * 100)
-    : 0
-  const isCompleted = progress === 100
-
   if (isLocked) {
     return (
       <Card className="relative overflow-hidden border-border/50 bg-card/50 opacity-60">
@@ -66,33 +58,21 @@ export function ModuleCard({
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Completado
               </Badge>
-            ) : progress > 0 ? (
+            ) : module.bunny_video_guid ? (
               <Badge variant="secondary" className="shrink-0">
-                {progress}%
+                <PlayCircle className="h-3 w-3 mr-1" />
+                Video
               </Badge>
             ) : null}
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent>
           {module.description && (
             <p className="text-sm text-muted-foreground line-clamp-2">
               {module.description}
             </p>
           )}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground flex items-center gap-1">
-                <PlayCircle className="h-4 w-4" />
-                {lessonCount} {lessonCount === 1 ? "leccion" : "lecciones"}
-              </span>
-              <span className="text-muted-foreground">
-                {completedLessons}/{lessonCount}
-              </span>
-            </div>
-            <Progress value={progress} className="h-1.5" />
-          </div>
         </CardContent>
       </Card>
     </Link>

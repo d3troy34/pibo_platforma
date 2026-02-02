@@ -3,64 +3,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock, BookOpen, Trophy } from "lucide-react"
-import type { Module, Lesson, LessonProgress } from "@/types/database"
+import type { Module, ModuleProgress } from "@/types/database"
 
 export const metadata = {
   title: "Mi Progreso",
   description: "Revisa tu progreso en el curso",
 }
 
-type ModuleWithLessons = Module & { lessons: Lesson[] }
-
 export default async function ProgressPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Get all modules with lessons
+  // Get all published modules
   const { data: modulesData } = await supabase
     .from("modules")
-    .select("*, lessons(*)")
+    .select("*")
     .eq("is_published", true)
     .order("order_index", { ascending: true })
 
-  const modules = modulesData as ModuleWithLessons[] | null
+  const modules = modulesData as Module[] | null
 
-  // Get all progress
-  const { data: progressData } = await supabase
-    .from("lesson_progress")
+  // Get all module progress
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: progressData } = await (supabase.from("module_progress") as any)
     .select("*")
     .eq("user_id", user!.id)
 
-  const progress = progressData as LessonProgress[] | null
+  const progress = progressData as ModuleProgress[] | null
 
-  const progressMap = new Map(progress?.map((p) => [p.lesson_id, p]) || [])
+  const progressMap = new Map(progress?.map((p) => [p.module_id, p]) || [])
 
   // Calculate stats
-  const allLessons = modules?.flatMap((m) => m.lessons) || []
-  const publishedLessons = allLessons.filter((l) => l.is_published)
-  const totalLessons = publishedLessons.length
-  const completedLessons = progress?.filter((p) => p.completed).length || 0
-  const inProgressLessons = progress?.filter((p) => !p.completed && p.progress_seconds > 0).length || 0
-  const totalProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+  const totalModules = modules?.length || 0
+  const completedModules = progress?.filter((p) => p.completed).length || 0
+  const inProgressModules = progress?.filter((p) => !p.completed && p.progress_seconds > 0).length || 0
+  const totalProgress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
 
   // Calculate total time watched
   const totalSecondsWatched = progress?.reduce((acc, p) => acc + (p.progress_seconds || 0), 0) || 0
   const hoursWatched = Math.floor(totalSecondsWatched / 3600)
   const minutesWatched = Math.floor((totalSecondsWatched % 3600) / 60)
-
-  // Module progress
-  const moduleProgress = modules?.map((module) => {
-    const moduleLessons = module.lessons?.filter((l) => l.is_published) || []
-    const moduleCompleted = moduleLessons.filter((l) => progressMap.get(l.id)?.completed).length
-    const percent = moduleLessons.length > 0 ? Math.round((moduleCompleted / moduleLessons.length) * 100) : 0
-    return {
-      id: module.id,
-      title: module.title,
-      totalLessons: moduleLessons.length,
-      completedLessons: moduleCompleted,
-      percent,
-    }
-  })
 
   return (
     <div className="space-y-8">
@@ -96,15 +78,15 @@ export default async function ProgressPage() {
         <Card className="border-border/50 bg-card/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lecciones Completadas
+              Modulos Completados
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
               <CheckCircle2 className="h-10 w-10 text-success" />
               <div>
-                <p className="text-3xl font-bold">{completedLessons}</p>
-                <p className="text-sm text-muted-foreground">de {totalLessons}</p>
+                <p className="text-3xl font-bold">{completedModules}</p>
+                <p className="text-sm text-muted-foreground">de {totalModules}</p>
               </div>
             </div>
           </CardContent>
@@ -120,8 +102,8 @@ export default async function ProgressPage() {
             <div className="flex items-center gap-4">
               <BookOpen className="h-10 w-10 text-accent" />
               <div>
-                <p className="text-3xl font-bold">{inProgressLessons}</p>
-                <p className="text-sm text-muted-foreground">lecciones</p>
+                <p className="text-3xl font-bold">{inProgressModules}</p>
+                <p className="text-sm text-muted-foreground">modulos</p>
               </div>
             </div>
           </CardContent>
@@ -156,8 +138,8 @@ export default async function ProgressPage() {
         <CardContent className="space-y-2">
           <Progress value={totalProgress} className="h-4" />
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{completedLessons} lecciones completadas</span>
-            <span>{totalLessons - completedLessons} restantes</span>
+            <span>{completedModules} modulos completados</span>
+            <span>{totalModules - completedModules} restantes</span>
           </div>
         </CardContent>
       </Card>
@@ -166,28 +148,36 @@ export default async function ProgressPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Progreso por Modulo</h2>
         <div className="space-y-3">
-          {moduleProgress?.map((module) => (
-            <Card key={module.id} className="border-border/50 bg-card/30">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium">{module.title}</h3>
-                  <div className="flex items-center gap-2">
-                    {module.percent === 100 ? (
-                      <Badge className="bg-success text-success-foreground">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Completado
-                      </Badge>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        {module.completedLessons}/{module.totalLessons}
-                      </span>
-                    )}
+          {modules?.map((module) => {
+            const mp = progressMap.get(module.id)
+            const isModuleCompleted = mp?.completed || false
+            return (
+              <Card key={module.id} className="border-border/50 bg-card/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium">{module.title}</h3>
+                    <div className="flex items-center gap-2">
+                      {isModuleCompleted ? (
+                        <Badge className="bg-success text-success-foreground">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Completado
+                        </Badge>
+                      ) : mp?.progress_seconds ? (
+                        <span className="text-sm text-muted-foreground">
+                          En progreso
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          Sin comenzar
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Progress value={module.percent} className="h-2" />
-              </CardContent>
-            </Card>
-          ))}
+                  <Progress value={isModuleCompleted ? 100 : 0} className="h-2" />
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </div>
     </div>

@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get("file") as File | null
-    const lessonId = formData.get("lessonId") as string | null
+    const moduleId = formData.get("moduleId") as string | null
 
-    if (!file || !lessonId) {
+    if (!file || !moduleId) {
       return NextResponse.json(
-        { error: "File and lessonId are required" },
+        { error: "File and moduleId are required" },
         { status: 400 }
       )
     }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     // Upload file
     const fileBuffer = Buffer.from(await file.arrayBuffer())
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
-    const filePath = `${lessonId}/${Date.now()}_${safeName}`
+    const filePath = `${moduleId}/${Date.now()}_${safeName}`
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from(BUCKET)

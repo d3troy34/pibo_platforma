@@ -7,16 +7,16 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 
-interface LessonActionsProps {
-  lessonId: string
+interface ModuleActionsProps {
+  moduleId: string
   isCompleted: boolean
   initialProgress: number
 }
 
-export function LessonActions({
-  lessonId,
+export function ModuleActions({
+  moduleId,
   isCompleted: initialIsCompleted,
-}: LessonActionsProps) {
+}: ModuleActionsProps) {
   const router = useRouter()
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted)
   const [isLoading, setIsLoading] = useState(false)
@@ -32,30 +32,30 @@ export function LessonActions({
         const completed = duration > 0 && seconds / duration >= 0.9
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("lesson_progress") as any).upsert(
+        await (supabase.from("module_progress") as any).upsert(
           {
             user_id: user.id,
-            lesson_id: lessonId,
+            module_id: moduleId,
             progress_seconds: Math.floor(seconds),
             completed,
             completed_at: completed ? new Date().toISOString() : null,
             last_watched_at: new Date().toISOString(),
           },
           {
-            onConflict: "user_id,lesson_id",
+            onConflict: "user_id,module_id",
           }
         )
 
         if (completed && !isCompleted) {
           setIsCompleted(true)
-          toast.success("Leccion completada!")
+          toast.success("Modulo completado!")
           router.refresh()
         }
       } catch (error) {
         console.error("Error saving progress:", error)
       }
     },
-    [lessonId, supabase, isCompleted, router]
+    [moduleId, supabase, isCompleted, router]
   )
 
   // Handle manual mark as complete
@@ -66,24 +66,24 @@ export function LessonActions({
       if (!user) return
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("lesson_progress") as any).upsert(
+      await (supabase.from("module_progress") as any).upsert(
         {
           user_id: user.id,
-          lesson_id: lessonId,
+          module_id: moduleId,
           completed: true,
           completed_at: new Date().toISOString(),
           last_watched_at: new Date().toISOString(),
         },
         {
-          onConflict: "user_id,lesson_id",
+          onConflict: "user_id,module_id",
         }
       )
 
       setIsCompleted(true)
-      toast.success("Leccion marcada como completada!")
+      toast.success("Modulo marcado como completado!")
       router.refresh()
     } catch {
-      toast.error("Error al marcar la leccion como completada")
+      toast.error("Error al marcar el modulo como completado")
     } finally {
       setIsLoading(false)
     }
@@ -96,17 +96,17 @@ export function LessonActions({
     }
 
     window.addEventListener(
-      `video-progress-${lessonId}`,
+      `video-progress-${moduleId}`,
       handleProgressUpdate as EventListener
     )
 
     return () => {
       window.removeEventListener(
-        `video-progress-${lessonId}`,
+        `video-progress-${moduleId}`,
         handleProgressUpdate as EventListener
       )
     }
-  }, [lessonId, saveProgress])
+  }, [moduleId, saveProgress])
 
   return (
     <div className="flex items-center justify-between">
@@ -114,7 +114,7 @@ export function LessonActions({
         {isCompleted ? (
           <span className="flex items-center gap-2 text-success">
             <CheckCircle2 className="h-5 w-5" />
-            Leccion completada
+            Modulo completado
           </span>
         ) : (
           <span>Progreso guardado automaticamente</span>
@@ -134,7 +134,7 @@ export function LessonActions({
           ) : (
             <CheckCircle2 className="h-4 w-4" />
           )}
-          Marcar como completada
+          Marcar como completado
         </Button>
       )}
     </div>

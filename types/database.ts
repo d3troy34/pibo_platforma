@@ -51,6 +51,9 @@ export type Database = {
           title: string
           description: string | null
           thumbnail_url: string | null
+          bunny_video_guid: string | null
+          duration_seconds: number
+          resources: Json
           order_index: number
           is_published: boolean
           created_at: string
@@ -61,6 +64,9 @@ export type Database = {
           title: string
           description?: string | null
           thumbnail_url?: string | null
+          bunny_video_guid?: string | null
+          duration_seconds?: number
+          resources?: Json
           order_index?: number
           is_published?: boolean
           created_at?: string
@@ -71,6 +77,9 @@ export type Database = {
           title?: string
           description?: string | null
           thumbnail_url?: string | null
+          bunny_video_guid?: string | null
+          duration_seconds?: number
+          resources?: Json
           order_index?: number
           is_published?: boolean
           created_at?: string
@@ -267,6 +276,42 @@ export type Database = {
         }
         Relationships: []
       }
+      module_progress: {
+        Row: {
+          id: string
+          user_id: string
+          module_id: string
+          progress_seconds: number
+          completed: boolean
+          completed_at: string | null
+          last_watched_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          module_id: string
+          progress_seconds?: number
+          completed?: boolean
+          completed_at?: string | null
+          last_watched_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          module_id?: string
+          progress_seconds?: number
+          completed?: boolean
+          completed_at?: string | null
+          last_watched_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           id: string
@@ -326,6 +371,7 @@ export type Module = Database["public"]["Tables"]["modules"]["Row"]
 export type Lesson = Database["public"]["Tables"]["lessons"]["Row"]
 export type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"]
 export type LessonProgress = Database["public"]["Tables"]["lesson_progress"]["Row"]
+export type ModuleProgress = Database["public"]["Tables"]["module_progress"]["Row"]
 export type Invitation = Database["public"]["Tables"]["invitations"]["Row"]
 export type DirectMessage = Database["public"]["Tables"]["direct_messages"]["Row"]
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]

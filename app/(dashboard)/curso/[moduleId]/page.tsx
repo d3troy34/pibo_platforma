@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, ArrowRight, FileText, Download, CheckCircle2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
-import { LessonCard } from "@/components/dashboard/lesson-card"
-import { Progress } from "@/components/ui/progress"
+import { VideoPlayer } from "@/components/video/video-player"
 import { Button } from "@/components/ui/button"
-import type { Module, Lesson, LessonProgress } from "@/types/database"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ModuleActions } from "./module-actions"
+import type { Module, ModuleProgress, LessonResource } from "@/types/database"
 
 export async function generateMetadata({ params }: { params: { moduleId: string } }) {
   const supabase = await createClient()
@@ -30,7 +31,6 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Get module
   const { data: moduleData, error } = await supabase
     .from("modules")
     .select("*")
@@ -44,39 +44,32 @@ export default async function ModulePage({ params }: ModulePageProps) {
     notFound()
   }
 
-  // Get lessons
-  const { data: lessonsData } = await supabase
-    .from("lessons")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: progressData } = await (supabase.from("module_progress") as any)
     .select("*")
+    .eq("user_id", user!.id)
     .eq("module_id", params.moduleId)
+    .single()
+
+  const progress = progressData as ModuleProgress | null
+
+  const resources = (courseModule.resources as LessonResource[]) || []
+
+  // Get all modules for navigation
+  const { data: allModulesData } = await supabase
+    .from("modules")
+    .select("id, title, order_index")
     .eq("is_published", true)
     .order("order_index", { ascending: true })
 
-  const lessons = lessonsData as Lesson[] | null
+  const allModules = allModulesData as Pick<Module, "id" | "title" | "order_index">[] | null
 
-  // Get user progress for this module's lessons
-  const lessonIds = lessons?.map((l) => l.id) || []
-  const { data: progressData } = await supabase
-    .from("lesson_progress")
-    .select("*")
-    .eq("user_id", user!.id)
-    .in("lesson_id", lessonIds)
-
-  const progress = progressData as LessonProgress[] | null
-
-  const progressMap = new Map(progress?.map((p) => [p.lesson_id, p]) || [])
-  const completedCount = progress?.filter((p) => p.completed).length || 0
-  const totalLessons = lessons?.length || 0
-  const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0
-
-  // Find first incomplete lesson
-  const firstIncompleteLesson = lessons?.find(
-    (l) => !progressMap.get(l.id)?.completed
-  )
+  const currentIndex = allModules?.findIndex((m) => m.id === params.moduleId) ?? -1
+  const prevModule = currentIndex > 0 ? allModules?.[currentIndex - 1] : null
+  const nextModule = currentIndex < (allModules?.length ?? 0) - 1 ? allModules?.[currentIndex + 1] : null
 
   return (
-    <div className="space-y-8">
-      {/* Back button */}
+    <div className="space-y-6">
       <Link href="/curso">
         <Button variant="ghost" size="sm" className="gap-2">
           <ArrowLeft className="h-4 w-4" />
@@ -84,48 +77,124 @@ export default async function ModulePage({ params }: ModulePageProps) {
         </Button>
       </Link>
 
-      {/* Module header */}
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-3xl font-bold">{courseModule.title}</h1>
-          {courseModule.description && (
-            <p className="text-muted-foreground mt-2">{courseModule.description}</p>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        <div className="flex items-center gap-4">
-          <Progress value={progressPercent} className="flex-1 h-2" />
-          <span className="text-sm font-medium text-primary">
-            {completedCount}/{totalLessons} completadas
-          </span>
-        </div>
-      </div>
-
-      {/* Lessons list */}
-      {lessons && lessons.length > 0 ? (
-        <div className="space-y-3">
-          {lessons.map((lesson, index) => {
-            const lessonProgress = progressMap.get(lesson.id)
-            return (
-              <LessonCard
-                key={lesson.id}
-                lesson={lesson}
-                moduleId={params.moduleId}
-                index={index}
-                isCompleted={lessonProgress?.completed || false}
-                isCurrentLesson={firstIncompleteLesson?.id === lesson.id}
-              />
-            )
-          })}
+      {/* Video Player */}
+      {courseModule.bunny_video_guid ? (
+        <div className="space-y-4">
+          <VideoPlayer
+            videoGuid={courseModule.bunny_video_guid}
+            moduleId={params.moduleId}
+            initialProgress={progress?.progress_seconds || 0}
+          />
+          <ModuleActions
+            moduleId={params.moduleId}
+            isCompleted={progress?.completed || false}
+            initialProgress={progress?.progress_seconds || 0}
+          />
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            No hay lecciones disponibles en este modulo.
-          </p>
-        </div>
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              Este modulo aun no tiene video disponible
+            </p>
+          </CardContent>
+        </Card>
       )}
+
+      {/* Module Info */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold">{courseModule.title}</h1>
+            {courseModule.description && (
+              <p className="text-muted-foreground mt-2">{courseModule.description}</p>
+            )}
+          </div>
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            {prevModule ? (
+              <Link href={`/curso/${prevModule.id}`}>
+                <Button variant="outline" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+              </Link>
+            ) : (
+              <div />
+            )}
+
+            {nextModule ? (
+              <Link href={`/curso/${nextModule.id}`}>
+                <Button className="gap-2 btn-gradient text-primary-foreground">
+                  Siguiente
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/curso">
+                <Button className="gap-2 btn-gradient text-primary-foreground">
+                  Completar curso
+                  <CheckCircle2 className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {resources.length > 0 && (
+            <Card className="border-border/50 bg-card/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Recursos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {resources.map((resource, index) => (
+                  <a
+                    key={index}
+                    href={resource.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors group"
+                  >
+                    <span className="text-sm truncate">{resource.name}</span>
+                    <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Other modules */}
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-lg">Otros modulos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 max-h-80 overflow-y-auto">
+              {allModules?.map((m, index) => (
+                <Link
+                  key={m.id}
+                  href={`/curso/${m.id}`}
+                  className={`flex items-center gap-3 p-2 rounded-lg text-sm transition-colors ${
+                    m.id === params.moduleId
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-xs shrink-0">
+                    {index + 1}
+                  </span>
+                  <span className="truncate">{m.title}</span>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

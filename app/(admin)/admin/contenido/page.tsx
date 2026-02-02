@@ -1,28 +1,27 @@
 import Link from "next/link"
-import { Plus, BookOpen, Video, Eye, EyeOff, Pencil, GripVertical } from "lucide-react"
+import { Plus, BookOpen, Video, Eye, EyeOff, Pencil, GripVertical, FileText } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import type { LessonResource } from "@/types/database"
 
 export default async function ContenidoPage() {
   const supabase = await createClient()
 
-  // Fetch modules with their lessons count
   const { data: modules } = await supabase
     .from("modules")
-    .select("*, lessons(id)")
+    .select("*")
     .order("order_index", { ascending: true })
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Gestion de Contenido</h1>
           <p className="text-muted-foreground mt-1">
-            Administra los modulos y lecciones del curso
+            Administra los modulos del curso
           </p>
         </div>
         <Link href="/admin/contenido/modulos/nuevo">
@@ -33,11 +32,10 @@ export default async function ContenidoPage() {
         </Link>
       </div>
 
-      {/* Modules List */}
       <div className="space-y-4">
         {modules && modules.length > 0 ? (
           modules.map((module, index) => {
-            const lessonsCount = Array.isArray(module.lessons) ? module.lessons.length : 0
+            const resources = (module.resources as LessonResource[] | null) || []
             return (
               <Card key={module.id} className="border-border/50 bg-card/50">
                 <CardHeader className="pb-3">
@@ -66,21 +64,23 @@ export default async function ContenidoPage() {
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Link href={`/admin/contenido/modulos/${module.id}`}>
-                        <Button variant="outline" size="sm" className="gap-2">
-                          <Pencil className="h-4 w-4" />
-                          Editar
-                        </Button>
-                      </Link>
-                    </div>
+                    <Link href={`/admin/contenido/modulos/${module.id}`}>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Pencil className="h-4 w-4" />
+                        Editar
+                      </Button>
+                    </Link>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Video className="h-4 w-4" />
-                      <span>{lessonsCount} {lessonsCount === 1 ? "leccion" : "lecciones"}</span>
+                      <span>{module.bunny_video_guid ? "Video configurado" : "Sin video"}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <FileText className="h-4 w-4" />
+                      <span>{resources.length} {resources.length === 1 ? "recurso" : "recursos"}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <GripVertical className="h-4 w-4" />
