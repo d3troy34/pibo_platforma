@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/dashboard/sidebar"
+import { AnnouncementBanner } from "@/components/announcements/announcement-banner"
+import type { Announcement } from "@/types/database"
 
 export default async function DashboardLayout({
   children,
@@ -68,10 +70,22 @@ export default async function DashboardLayout({
     ? Math.round((completedLessons / totalLessons) * 100)
     : 0
 
+  // Get latest announcement
+  const { data: latestAnnouncement } = await supabase
+    .from("announcements")
+    .select("*")
+    .eq("is_active", true)
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString())
+    .order("published_at", { ascending: false })
+    .limit(1)
+    .single()
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar user={profile} totalProgress={totalProgress} />
       <main className="flex-1 overflow-y-auto">
+        <AnnouncementBanner announcement={(latestAnnouncement as Announcement) || null} />
         <div className="container py-8 px-4 lg:px-8">
           {children}
         </div>

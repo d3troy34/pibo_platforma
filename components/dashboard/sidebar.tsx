@@ -1,16 +1,18 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   BookOpen,
   BarChart3,
   User,
   LogOut,
-  GraduationCap,
   Menu,
   X,
-  MessageCircle
+  MessageSquare,
+  ShoppingBag,
+  Megaphone
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -32,7 +34,9 @@ interface SidebarProps {
 const navigation = [
   { name: "Mi Curso", href: "/curso", icon: BookOpen },
   { name: "Mi Progreso", href: "/progreso", icon: BarChart3 },
-  { name: "Foro", href: "/foro", icon: MessageCircle },
+  { name: "Mensajes", href: "/mensajes", icon: MessageSquare },
+  { name: "Anuncios", href: "/anuncios", icon: Megaphone },
+  { name: "Catálogo", href: "/catalogo", icon: ShoppingBag },
   { name: "Mi Perfil", href: "/perfil", icon: User },
 ]
 
@@ -82,15 +86,14 @@ export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-secondary/50 border-r border-border flex flex-col transition-transform duration-300",
+          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gray-50 border-r border-border flex flex-col transition-transform duration-300",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo */}
         <div className="p-6">
-          <Link href="/curso" className="flex items-center gap-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold text-gradient">Mipibo</span>
+          <Link href="/curso">
+            <Image src="/logo.png" alt="Pibo" width={100} height={40} />
           </Link>
         </div>
 

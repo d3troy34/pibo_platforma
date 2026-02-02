@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
@@ -11,7 +12,8 @@ import {
   Menu,
   X,
   UserPlus,
-  MessageCircle,
+  MessageSquare,
+  Megaphone,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -49,9 +51,14 @@ const navItems = [
     icon: BookOpen,
   },
   {
-    label: "Foro",
-    href: "/foro",
-    icon: MessageCircle,
+    label: "Mensajes",
+    href: "/admin/mensajes",
+    icon: MessageSquare,
+  },
+  {
+    label: "Anuncios",
+    href: "/admin/anuncios",
+    icon: Megaphone,
   },
 ]
 
@@ -100,7 +107,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-50 border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -108,9 +115,8 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
           {/* Header */}
           <div className="p-6 border-b border-border">
             <Link href="/admin" className="flex items-center gap-2">
-              <span className="text-xl font-bold bg-gradient-to-r from-accent to-accent-blue bg-clip-text text-transparent">
-                Mipibo Admin
-              </span>
+              <Image src="/logo.png" alt="Pibo" width={80} height={32} />
+              <span className="text-sm font-medium text-muted-foreground">Admin</span>
             </Link>
           </div>
 

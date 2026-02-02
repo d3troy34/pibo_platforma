@@ -10,14 +10,17 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Mipibo - Tu Camino a la Universidad",
-    template: "%s | Mipibo",
+    default: "Pibo - Tu Camino a la Universidad",
+    template: "%s | Pibo",
   },
   description: "Plataforma educativa para estudiantes latinoamericanos que se preparan para universidades argentinas.",
   keywords: ["educacion", "universidad", "argentina", "latinoamerica", "cursos", "preparacion universitaria"],
-  authors: [{ name: "Mipibo" }],
+  authors: [{ name: "Pibo" }],
+  icons: {
+    icon: "/favicon.png",
+  },
   openGraph: {
-    title: "Mipibo - Tu Camino a la Universidad",
+    title: "Pibo - Tu Camino a la Universidad",
     description: "Plataforma educativa para estudiantes latinoamericanos",
     type: "website",
     locale: "es_AR",
@@ -30,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es">
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}
         <Toaster />

@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { ArrowLeft, Loader2, Plus, Video, Trash2, Pencil, Eye, EyeOff } from "lucide-react"
+import { ArrowLeft, Loader2, Plus, Video, Trash2, Pencil, Eye, EyeOff, FileText, Upload, X as XIcon } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { createClient } from "@/lib/supabase/client"
-import type { Module, Lesson } from "@/types/database"
+import type { Module, Lesson, LessonResource } from "@/types/database"
 
 const moduleSchema = z.object({
   title: z.string().min(1, "El titulo es requerido"),
@@ -413,6 +413,10 @@ function LessonFormModal({
   onSave: (lesson: Lesson) => void
 }) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [resources, setResources] = useState<LessonResource[]>(
+    (lesson?.resources as LessonResource[] | null) || []
+  )
   const supabase = createClient()
 
   const lessonSchema = z.object({
@@ -454,6 +458,81 @@ function LessonFormModal({
 
   const isPublished = watch("is_published")
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Need a saved lesson to attach files
+    if (!lesson) {
+      toast.error("Primero guardá la lección, luego podrás subir archivos")
+      e.target.value = ""
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("lessonId", lesson.id)
+
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast.error(result.error || "Error al subir archivo")
+        return
+      }
+
+      const newResources = [...resources, result.resource]
+      setResources(newResources)
+
+      // Update lesson resources in DB
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("lessons") as any)
+        .update({ resources: newResources })
+        .eq("id", lesson.id)
+
+      toast.success("Archivo subido")
+    } catch {
+      toast.error("Error al subir archivo")
+    } finally {
+      setIsUploading(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleDeleteResource = async (index: number) => {
+    if (!lesson) return
+
+    const resource = resources[index]
+
+    try {
+      // Delete from storage
+      await fetch("/api/admin/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: resource.url }),
+      })
+
+      const newResources = resources.filter((_, i) => i !== index)
+      setResources(newResources)
+
+      // Update lesson resources in DB
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("lessons") as any)
+        .update({ resources: newResources })
+        .eq("id", lesson.id)
+
+      toast.success("Archivo eliminado")
+    } catch {
+      toast.error("Error al eliminar archivo")
+    }
+  }
+
   const onSubmit = async (data: LessonForm) => {
     setIsLoading(true)
     try {
@@ -468,6 +547,7 @@ function LessonFormModal({
             duration_seconds: data.duration_seconds || 0,
             order_index: data.order_index,
             is_published: data.is_published,
+            resources,
           })
           .eq("id", lesson.id)
           .select()
@@ -505,7 +585,7 @@ function LessonFormModal({
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg border-border/50 bg-card">
+      <Card className="w-full max-w-lg border-border/50 bg-card max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>{lesson ? "Editar Leccion" : "Nueva Leccion"}</CardTitle>
           <CardDescription>
@@ -557,6 +637,73 @@ function LessonFormModal({
                 checked={isPublished}
                 onCheckedChange={(checked) => setValue("is_published", checked)}
               />
+            </div>
+
+            <Separator />
+
+            {/* Resources / File Upload */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Recursos (PDF, PowerPoint, Word)
+              </Label>
+
+              {resources.length > 0 && (
+                <div className="space-y-2">
+                  {resources.map((resource, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 rounded-lg bg-secondary/50 text-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                        <span className="truncate">{resource.name}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {resource.type.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive shrink-0"
+                        onClick={() => handleDeleteResource(index)}
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {lesson ? (
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf,.ppt,.pptx,.doc,.docx"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <div className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        Subir archivo (max 20MB)
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Guardá la lección primero para poder subir archivos
+                </p>
+              )}
             </div>
 
             <Separator />

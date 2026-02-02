@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Routes that require authentication
-  const protectedRoutes = ["/curso", "/progreso", "/perfil"]
+  const protectedRoutes = ["/curso", "/progreso", "/perfil", "/mensajes", "/anuncios", "/catalogo"]
   const adminRoutes = ["/admin"]
   const authRoutes = ["/login", "/register", "/reset-password", "/update-password"]
 

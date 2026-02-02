@@ -210,63 +210,60 @@ export type Database = {
         }
         Relationships: []
       }
-      forum_posts: {
+      direct_messages: {
         Row: {
           id: string
-          user_id: string
-          title: string
-          content: string
-          is_answered: boolean
+          student_id: string
+          sender_id: string
+          message: string
           created_at: string
-          updated_at: string
+          read_at: string | null
         }
         Insert: {
           id?: string
-          user_id: string
-          title: string
-          content: string
-          is_answered?: boolean
+          student_id: string
+          sender_id: string
+          message: string
           created_at?: string
-          updated_at?: string
+          read_at?: string | null
         }
         Update: {
           id?: string
-          user_id?: string
-          title?: string
-          content?: string
-          is_answered?: boolean
+          student_id?: string
+          sender_id?: string
+          message?: string
           created_at?: string
-          updated_at?: string
+          read_at?: string | null
         }
         Relationships: []
       }
-      forum_replies: {
+      announcements: {
         Row: {
           id: string
-          post_id: string
-          user_id: string
+          title: string
           content: string
-          is_admin_reply: boolean
+          created_by: string
           created_at: string
-          updated_at: string
+          published_at: string | null
+          is_active: boolean
         }
         Insert: {
           id?: string
-          post_id: string
-          user_id: string
+          title: string
           content: string
-          is_admin_reply?: boolean
+          created_by: string
           created_at?: string
-          updated_at?: string
+          published_at?: string | null
+          is_active?: boolean
         }
         Update: {
           id?: string
-          post_id?: string
-          user_id?: string
+          title?: string
           content?: string
-          is_admin_reply?: boolean
+          created_by?: string
           created_at?: string
-          updated_at?: string
+          published_at?: string | null
+          is_active?: boolean
         }
         Relationships: []
       }
@@ -330,6 +327,8 @@ export type Lesson = Database["public"]["Tables"]["lessons"]["Row"]
 export type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"]
 export type LessonProgress = Database["public"]["Tables"]["lesson_progress"]["Row"]
 export type Invitation = Database["public"]["Tables"]["invitations"]["Row"]
+export type DirectMessage = Database["public"]["Tables"]["direct_messages"]["Row"]
+export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]
 
 // Resource type for lessons
 export type LessonResource = {
@@ -338,33 +337,16 @@ export type LessonResource = {
   type: "pdf" | "doc" | "video" | "link" | "other"
 }
 
-// Forum types
-export interface ForumPost {
-  id: string
-  user_id: string
-  title: string
-  content: string
-  is_answered: boolean
-  created_at: string
-  updated_at: string
+// Direct Message types
+export interface DirectMessageWithSender extends DirectMessage {
+  sender: Pick<Profile, "id" | "full_name" | "avatar_url" | "role">
 }
 
-export interface ForumReply {
-  id: string
-  post_id: string
-  user_id: string
-  content: string
-  is_admin_reply: boolean
-  created_at: string
-  updated_at: string
+export interface DirectMessageWithStudent extends DirectMessage {
+  student: Pick<Profile, "id" | "full_name" | "avatar_url">
 }
 
-// Extended types with relations
-export interface ForumPostWithAuthor extends ForumPost {
-  profiles: Pick<Profile, "id" | "full_name" | "avatar_url" | "role">
-  replies_count?: number
-}
-
-export interface ForumReplyWithAuthor extends ForumReply {
-  profiles: Pick<Profile, "id" | "full_name" | "avatar_url" | "role">
+// Announcement types
+export interface AnnouncementWithAuthor extends Announcement {
+  author: Pick<Profile, "id" | "full_name" | "avatar_url">
 }

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 
 export default function AuthLayout({
   children,
@@ -9,7 +10,7 @@ export default function AuthLayout({
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       {/* Logo */}
       <Link href="/" className="mb-8">
-        <h1 className="text-3xl font-bold text-gradient">Mipibo</h1>
+        <Image src="/logo.png" alt="Pibo" width={120} height={48} priority />
       </Link>
 
       {/* Auth Card */}
@@ -19,7 +20,7 @@ export default function AuthLayout({
 
       {/* Footer */}
       <p className="mt-8 text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} Mipibo. Todos los derechos reservados.
+        &copy; {new Date().getFullYear()} Pibo. Todos los derechos reservados.
       </p>
     </div>
   )
