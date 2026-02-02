@@ -44,8 +44,10 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
 
       setMessage("")
       onMessageSent?.()
-      router.refresh()
       toast.success("Mensaje enviado")
+      router.refresh()
+      // Fallback: hard reload to ensure server data is re-fetched
+      setTimeout(() => window.location.reload(), 500)
     } catch (error) {
       console.error("Error sending message:", error)
       toast.error("Error al enviar el mensaje")

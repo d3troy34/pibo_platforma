@@ -77,7 +77,7 @@
 
 /* Fondo con gradiente suave */
 .gradient-bg {
-  background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 25%, #f0fdfa 50%, #dbeafe 75%, #cffafe 100%);
+  background: linear-gradient(135deg, #bfdbfe 0%, #bae6fd 25%, #ccfbf1 50%, #bfdbfe 75%, #a5f3fc 100%);
 }
 
 /* Scrollbar personalizada */

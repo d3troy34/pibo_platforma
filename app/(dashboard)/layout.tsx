@@ -87,9 +87,9 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen gradient-bg">
       <Sidebar user={profile} totalProgress={totalProgress} />
-      <main className="flex-1 overflow-y-auto gradient-bg">
+      <main className="flex-1 overflow-y-auto">
         <AnnouncementBanner announcement={(latestAnnouncement as Announcement) || null} />
         <div className="container py-8 px-4 lg:px-8">
           {children}
