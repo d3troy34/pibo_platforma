@@ -118,7 +118,7 @@ export default async function AdminStudentChatPage({
           <div className="flex-1 overflow-y-auto mb-4 border rounded-lg bg-background">
             <MessageList messages={messages} currentUserId={user.id} />
           </div>
-          <MessageInput studentId={studentId} onMessageSent={() => {}} />
+          <MessageInput studentId={studentId} />
         </CardContent>
       </Card>
     </div>

@@ -71,7 +71,7 @@ export default async function MensajesPage() {
           <div className="flex-1 overflow-y-auto mb-4 border rounded-lg bg-background">
             <MessageList messages={messages} currentUserId={user.id} />
           </div>
-          <MessageInput studentId={user.id} onMessageSent={() => {}} />
+          <MessageInput studentId={user.id} />
         </CardContent>
       </Card>
     </div>
