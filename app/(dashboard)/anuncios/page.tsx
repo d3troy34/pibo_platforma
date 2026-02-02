@@ -9,22 +9,27 @@ import type { Announcement } from "@/types/database"
 export const dynamic = "force-dynamic"
 
 async function getAnnouncements(): Promise<Announcement[]> {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("is_active", true)
-    .not("published_at", "is", null)
-    .lte("published_at", new Date().toISOString())
-    .order("published_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("announcements")
+      .select("*")
+      .eq("is_active", true)
+      .not("published_at", "is", null)
+      .lte("published_at", new Date().toISOString())
+      .order("published_at", { ascending: false })
 
-  if (error) {
+    if (error) {
+      console.error("Error fetching announcements:", error)
+      return []
+    }
+
+    return (data as Announcement[]) || []
+  } catch (error) {
     console.error("Error fetching announcements:", error)
     return []
   }
-
-  return data || []
 }
 
 export default async function AnunciosPage() {

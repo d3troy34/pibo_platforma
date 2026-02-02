@@ -8,29 +8,34 @@ import type { DirectMessageWithSender } from "@/types/database"
 export const dynamic = "force-dynamic"
 
 async function getMessages(userId: string) {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from("direct_messages")
-    .select(`
-      *,
-      sender:profiles(
-        id,
-        full_name,
-        avatar_url,
-        role
-      )
-    `)
-    .eq("student_id", userId)
-    .order("created_at", { ascending: true })
+    const { data, error } = await supabase
+      .from("direct_messages")
+      .select(`
+        *,
+        sender:profiles(
+          id,
+          full_name,
+          avatar_url,
+          role
+        )
+      `)
+      .eq("student_id", userId)
+      .order("created_at", { ascending: true })
 
-  if (error) {
+    if (error) {
+      console.error("Error fetching messages:", error)
+      return []
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data as any as DirectMessageWithSender[]) || []
+  } catch (error) {
     console.error("Error fetching messages:", error)
     return []
   }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data as any as DirectMessageWithSender[]) || []
 }
 
 export default async function MensajesPage() {
