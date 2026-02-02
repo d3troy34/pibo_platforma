@@ -53,22 +53,27 @@ export default async function DashboardLayout({
   }
 
   // Calculate total progress
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("id")
-    .eq("is_published", true)
+  let totalProgress = 0
+  try {
+    const { data: modules } = await supabase
+      .from("modules")
+      .select("id")
+      .eq("is_published", true)
 
-  const { data: progress } = await supabase
-    .from("lesson_progress")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("completed", true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: progress } = await (supabase.from("module_progress") as any)
+      .select("module_id")
+      .eq("user_id", user.id)
+      .eq("completed", true)
 
-  const totalLessons = lessons?.length || 0
-  const completedLessons = progress?.length || 0
-  const totalProgress = totalLessons > 0
-    ? Math.round((completedLessons / totalLessons) * 100)
-    : 0
+    const totalModules = modules?.length || 0
+    const completedModules = progress?.length || 0
+    totalProgress = totalModules > 0
+      ? Math.round((completedModules / totalModules) * 100)
+      : 0
+  } catch {
+    // table may not exist yet
+  }
 
   // Get latest announcement
   const { data: latestAnnouncement } = await supabase
@@ -84,7 +89,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar user={profile} totalProgress={totalProgress} />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto gradient-bg">
         <AnnouncementBanner announcement={(latestAnnouncement as Announcement) || null} />
         <div className="container py-8 px-4 lg:px-8">
           {children}

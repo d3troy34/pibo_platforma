@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { MessageList } from "@/components/chat/message-list"
 import { MessageInput } from "@/components/chat/message-input"
 import type { DirectMessageWithSender } from "@/types/database"
@@ -52,28 +51,21 @@ export default async function MensajesPage() {
   const messages = await getMessages(user.id)
 
   return (
-    <div className="container max-w-4xl mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Mensajes</h1>
-        <p className="text-muted-foreground">
-          Conversa directamente con el instructor
+    <div className="flex flex-col h-[calc(100vh-6rem)] max-w-3xl mx-auto">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold">Chat con el Instructor</h1>
+        <p className="text-sm text-muted-foreground">
+          Haz preguntas sobre el curso o el contenido
         </p>
       </div>
 
-      <Card className="h-[calc(100vh-16rem)]">
-        <CardHeader>
-          <CardTitle>Chat con el Instructor</CardTitle>
-          <CardDescription>
-            Haz preguntas sobre el curso o el contenido
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col h-[calc(100%-5rem)]">
-          <div className="flex-1 overflow-y-auto mb-4 border rounded-lg bg-background">
-            <MessageList messages={messages} currentUserId={user.id} />
-          </div>
-          <MessageInput studentId={user.id} />
-        </CardContent>
-      </Card>
+      <div className="flex-1 overflow-y-auto rounded-t-xl border border-b-0 bg-white">
+        <MessageList messages={messages} currentUserId={user.id} />
+      </div>
+
+      <div className="border rounded-b-xl bg-white p-3">
+        <MessageInput studentId={user.id} />
+      </div>
     </div>
   )
 }
