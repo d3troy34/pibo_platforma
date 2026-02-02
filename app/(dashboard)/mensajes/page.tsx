@@ -11,8 +11,8 @@ async function getMessages(userId: string) {
   try {
     const supabase = await createClient()
 
-    const { data, error } = await supabase
-      .from("direct_messages")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from("direct_messages") as any)
       .select(`
         *,
         sender:profiles(
