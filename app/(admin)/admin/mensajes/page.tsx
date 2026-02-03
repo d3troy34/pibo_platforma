@@ -32,8 +32,6 @@ function getInitials(name: string | null): string {
 async function getStudentConversations(): Promise<StudentConversation[]> {
   const supabase = await createClient()
 
-  console.log("Admin: Fetching all conversations...")
-
   // Get all students who have sent or received messages
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: conversations, error } = await (supabase.from("direct_messages") as any)
@@ -50,8 +48,6 @@ async function getStudentConversations(): Promise<StudentConversation[]> {
       )
     `)
     .order("created_at", { ascending: false })
-
-  console.log("Admin conversations result:", { error, count: conversations?.length })
 
   if (error || !conversations) {
     console.error("Error fetching conversations:", error)

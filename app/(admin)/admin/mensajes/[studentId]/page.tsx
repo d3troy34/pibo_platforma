@@ -14,8 +14,6 @@ async function getMessages(studentId: string) {
   try {
     const supabase = await createClient()
 
-    console.log("Admin chat: Fetching messages for student:", studentId)
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from("direct_messages") as any)
       .select(`
@@ -29,8 +27,6 @@ async function getMessages(studentId: string) {
       `)
       .eq("student_id", studentId)
       .order("created_at", { ascending: true })
-
-    console.log("Admin chat messages result:", { error, count: data?.length })
 
     if (error) {
       console.error("Error fetching messages:", error)
