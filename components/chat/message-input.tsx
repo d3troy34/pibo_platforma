@@ -78,6 +78,7 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Escribe tu mensaje..."
+        aria-label="Escribe tu mensaje"
         className="flex-1 min-h-[80px] resize-none"
         disabled={isSending}
         onKeyDown={(e) => {
@@ -92,6 +93,7 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         disabled={isSending || !message.trim()}
         className="btn-gradient"
         size="icon"
+        aria-label="Enviar mensaje"
       >
         <Send className="h-4 w-4" />
       </Button>

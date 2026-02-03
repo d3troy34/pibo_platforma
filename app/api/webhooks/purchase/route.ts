@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resend } from "@/lib/resend/client"
-import { createHmac, randomBytes } from "crypto"
+import { createHmac } from "crypto"
 
 interface PurchaseWebhookPayload {
   email: string
@@ -11,20 +11,15 @@ interface PurchaseWebhookPayload {
   currency?: string
   payment_provider?: string
   timestamp?: string
-  signature: string
+  signature?: string // Legacy: signature in body (deprecated, use header instead)
 }
 
-function generateSecurePassword(length: number = 12): string {
-  const charset = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-  const bytes = randomBytes(length)
-  let password = ""
-  for (let i = 0; i < length; i++) {
-    password += charset[bytes[i] % charset.length]
+function verifyWebhookSignature(payload: string, signature: string | null): boolean {
+  if (!signature) {
+    console.error("No signature provided")
+    return false
   }
-  return password
-}
 
-function verifyWebhookSignature(payload: string, signature: string): boolean {
   const secret = process.env.WEBHOOK_SECRET
   if (!secret) {
     console.error("WEBHOOK_SECRET not configured")
@@ -40,6 +35,7 @@ function verifyWebhookSignature(payload: string, signature: string): boolean {
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text()
+
     let body: PurchaseWebhookPayload
 
     try {
@@ -51,29 +47,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, full_name, purchase_id, amount, currency, payment_provider, signature } = body
+    // Get signature from header (preferred) or body (legacy/backwards compatible)
+    const headerSignature = request.headers.get("x-webhook-signature")
+    const bodySignature = body.signature
 
-    // Validate required fields
-    if (!email || !full_name || !purchase_id || !signature) {
-      return NextResponse.json(
-        { error: "Missing required fields: email, full_name, purchase_id, signature" },
-        { status: 400 }
-      )
-    }
-
-    // Verify webhook signature
-    // Create payload string for signature verification (must match sender's exact format)
-    const signaturePayload = JSON.stringify({
-      email,
-      full_name,
-      purchase_id,
-    })
-
-    if (!verifyWebhookSignature(signaturePayload, signature)) {
+    // Verify webhook signature against raw body
+    // Try header first, then fall back to body signature for backwards compatibility
+    if (!verifyWebhookSignature(rawBody, headerSignature || bodySignature || null)) {
       console.error("Error: Invalid signature")
       return NextResponse.json(
         { error: "Invalid signature" },
         { status: 401 }
+      )
+    }
+
+    const { email, full_name, purchase_id, amount, currency, payment_provider } = body
+
+    // Validate required fields
+    if (!email || !full_name || !purchase_id) {
+      return NextResponse.json(
+        { error: "Missing required fields: email, full_name, purchase_id" },
+        { status: 400 }
       )
     }
 
@@ -87,28 +81,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingProfile) {
-      // User already exists - just ensure they have enrollment
+      // User already exists - just ensure they have enrollment (use upsert for idempotency)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existingEnrollment } = await (supabaseAdmin.from("enrollments") as any)
-        .select("id")
-        .eq("user_id", existingProfile.id)
-        .single()
-
-      if (!existingEnrollment) {
-        // Create enrollment for existing user
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabaseAdmin.from("enrollments") as any)
-          .insert({
-            user_id: existingProfile.id,
-            payment_provider: payment_provider || "manual",
-            payment_id: purchase_id,
-            payment_status: "completed",
-            payment_method: "mipibo_purchase",
-            amount_usd: amount || 180,
-            currency: currency || "USD",
-            enrolled_at: new Date().toISOString(),
-          })
-      }
+      await (supabaseAdmin.from("enrollments") as any)
+        .upsert({
+          user_id: existingProfile.id,
+          payment_provider: payment_provider || "manual",
+          payment_id: purchase_id,
+          payment_status: "completed",
+          payment_method: "mipibo_purchase",
+          amount_usd: amount || 180,
+          currency: currency || "USD",
+          enrolled_at: new Date().toISOString(),
+        }, { onConflict: "user_id" })
 
       return NextResponse.json({
         success: true,
@@ -117,13 +102,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate secure password
-    const generatedPassword = generateSecurePassword(12)
-
-    // Create user account
+    // Create user account WITHOUT password (will use password reset flow)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email.toLowerCase(),
-      password: generatedPassword,
       email_confirm: true,
       user_metadata: {
         full_name,
@@ -139,26 +120,19 @@ export async function POST(request: NextRequest) {
         const existingUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
         if (existingUser) {
+          // Use upsert for idempotency
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: existingEnrollment } = await (supabaseAdmin.from("enrollments") as any)
-            .select("id")
-            .eq("user_id", existingUser.id)
-            .single()
-
-          if (!existingEnrollment) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabaseAdmin.from("enrollments") as any)
-              .insert({
-                user_id: existingUser.id,
-                payment_provider: payment_provider || "manual",
-                payment_id: purchase_id,
-                payment_status: "completed",
-                payment_method: "mipibo_purchase",
-                amount_usd: amount || 180,
-                currency: currency || "USD",
-                enrolled_at: new Date().toISOString(),
-              })
-          }
+          await (supabaseAdmin.from("enrollments") as any)
+            .upsert({
+              user_id: existingUser.id,
+              payment_provider: payment_provider || "manual",
+              payment_id: purchase_id,
+              payment_status: "completed",
+              payment_method: "mipibo_purchase",
+              amount_usd: amount || 180,
+              currency: currency || "USD",
+              enrolled_at: new Date().toISOString(),
+            }, { onConflict: "user_id" })
 
           return NextResponse.json({
             success: true,
@@ -185,10 +159,10 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", userId)
 
-    // Create enrollment
+    // Create enrollment (use upsert for idempotency)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: enrollmentError } = await (supabaseAdmin.from("enrollments") as any)
-      .insert({
+      .upsert({
         user_id: userId,
         payment_provider: payment_provider || "manual",
         payment_id: purchase_id,
@@ -197,20 +171,35 @@ export async function POST(request: NextRequest) {
         amount_usd: amount || 180,
         currency: currency || "USD",
         enrolled_at: new Date().toISOString(),
-      })
+      }, { onConflict: "user_id" })
 
     if (enrollmentError) {
       console.error("Error creating enrollment:", enrollmentError)
     }
 
-    // Send credentials email
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const loginUrl = `${appUrl}/login`
+    // Generate password reset link for secure password setup
+    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: email.toLowerCase(),
+    })
 
+    if (resetError) {
+      console.error("Error generating password reset link:", resetError)
+      return NextResponse.json({
+        success: true,
+        message: "Account created but password reset link failed",
+        email_sent: false,
+        purchase_id,
+      })
+    }
+
+    const resetUrl = resetData.properties.action_link
+
+    // Send welcome email with password setup link (NOT plaintext password)
     const { error: emailError } = await resend.emails.send({
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
-      subject: "Tus credenciales de acceso a Mipibo",
+      subject: "Bienvenido a Mipibo - Configura tu acceso",
       html: `
         <!DOCTYPE html>
         <html>
@@ -221,7 +210,7 @@ export async function POST(request: NextRequest) {
           <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
               <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-                Bienvenido a Mipibo, ${full_name}!
+                ¡Bienvenido a Mipibo, ${full_name}!
               </h1>
 
               <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
@@ -230,31 +219,31 @@ export async function POST(request: NextRequest) {
 
               <div style="background-color: #334155; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
                 <h2 style="color: #7DD3FC; margin-top: 0; margin-bottom: 16px; font-size: 18px;">
-                  Tus credenciales de acceso:
+                  Configura tu contraseña:
                 </h2>
 
                 <p style="margin: 8px 0; color: #F0F9FF;">
                   <strong>Email:</strong> ${email}
                 </p>
 
-                <p style="margin: 8px 0; color: #F0F9FF;">
-                  <strong>Contrasena:</strong> <code style="background-color: #0F172A; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${generatedPassword}</code>
+                <p style="margin: 12px 0; color: #CBD5E1; font-size: 14px;">
+                  Haz clic en el botón de abajo para configurar tu contraseña y acceder al curso.
                 </p>
               </div>
 
-              <p style="margin-bottom: 24px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
-                Te recomendamos cambiar tu contrasena despues de iniciar sesion por primera vez.
-              </p>
-
-              <a href="${loginUrl}"
+              <a href="${resetUrl}"
                  style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-                Iniciar Sesion
+                Configurar Contraseña
               </a>
+
+              <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
+                Este enlace expira en 24 horas. Si tienes problemas, puedes solicitar un nuevo enlace desde la página de inicio de sesión.
+              </p>
 
               <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
 
               <p style="font-size: 12px; color: #64748B;">
-                Si tienes problemas para acceder, puedes restablecer tu contrasena desde la pagina de login.
+                Si no solicitaste esta cuenta, puedes ignorar este email.
               </p>
 
               <p style="font-size: 12px; color: #64748B; margin-top: 16px;">
@@ -267,7 +256,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (emailError) {
-      console.error("Error sending credentials email:", emailError)
+      console.error("Error sending welcome email:", emailError)
       return NextResponse.json({
         success: true,
         message: "Account created but email failed to send",
@@ -278,7 +267,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Account created and credentials sent",
+      message: "Account created and password setup email sent",
       email_sent: true,
       purchase_id,
     })

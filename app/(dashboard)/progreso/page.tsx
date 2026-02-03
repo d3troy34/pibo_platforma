@@ -82,7 +82,7 @@ export default async function ProgressPage() {
         <Card className="border-border/50 bg-card/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Modulos Completados
+              Módulos Completados
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -107,7 +107,7 @@ export default async function ProgressPage() {
               <BookOpen className="h-10 w-10 text-accent" />
               <div>
                 <p className="text-3xl font-bold">{inProgressModules}</p>
-                <p className="text-sm text-muted-foreground">modulos</p>
+                <p className="text-sm text-muted-foreground">módulos</p>
               </div>
             </div>
           </CardContent>
@@ -142,7 +142,7 @@ export default async function ProgressPage() {
         <CardContent className="space-y-2">
           <Progress value={totalProgress} className="h-4" />
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{completedModules} modulos completados</span>
+            <span>{completedModules} módulos completados</span>
             <span>{totalModules - completedModules} restantes</span>
           </div>
         </CardContent>
@@ -150,7 +150,7 @@ export default async function ProgressPage() {
 
       {/* Module Progress */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Progreso por Modulo</h2>
+        <h2 className="text-xl font-semibold">Progreso por Módulo</h2>
         <div className="space-y-3">
           {modules?.map((module) => {
             const mp = progressMap.get(module.id)

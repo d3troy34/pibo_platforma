@@ -5,7 +5,7 @@ import type { Profile, Enrollment } from "@/types/database"
 
 export const metadata = {
   title: "Admin Dashboard",
-  description: "Panel de administracion de Mipibo",
+  description: "Panel de administración de Mipibo",
 }
 
 export default async function AdminDashboardPage() {
@@ -67,7 +67,7 @@ export default async function AdminDashboardPage() {
       description: "Pagos completados",
     },
     {
-      title: "Modulos",
+      title: "Módulos",
       value: moduleCount || 0,
       icon: BookOpen,
       description: "Publicados",
@@ -86,7 +86,7 @@ export default async function AdminDashboardPage() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground mt-2">
-          Bienvenido al panel de administracion
+          Bienvenido al panel de administración
         </p>
       </div>
 
@@ -146,7 +146,7 @@ export default async function AdminDashboardPage() {
                   <div className="text-right">
                     <p className="text-sm font-medium text-primary">
                       {enrollment.payment_method === "invitation"
-                        ? "Invitacion"
+                        ? "Invitación"
                         : `$${enrollment.amount_usd} ${enrollment.currency}`}
                     </p>
                     <p className="text-xs text-muted-foreground">

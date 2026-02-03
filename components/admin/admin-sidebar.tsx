@@ -70,7 +70,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    toast.success("Sesion cerrada")
+    toast.success("Sesión cerrada")
     router.push("/login")
     router.refresh()
   }
@@ -93,6 +93,8 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
         size="icon"
         className="fixed top-4 left-4 z-50 lg:hidden"
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+        aria-expanded={isOpen}
       >
         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
@@ -167,7 +169,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />
-              Cerrar Sesion
+              Cerrar Sesión
             </Button>
           </div>
         </div>

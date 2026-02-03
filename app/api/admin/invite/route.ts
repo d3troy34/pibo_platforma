@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resend } from "@/lib/resend/client"
+import { checkRateLimit } from "@/lib/rate-limit"
 import { randomBytes } from "crypto"
 import type { Profile } from "@/types/database"
 
@@ -32,6 +33,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Rate limiting: 10 invitations per minute per user
+    const rateLimitKey = `invite:${user.id}`
+    if (!checkRateLimit(rateLimitKey, 10, 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Por favor, espera un momento." },
+        { status: 429 }
+      )
+    }
+
     const { email, fullName } = await request.json()
 
     if (!email) {
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (existingInvitation) {
       return NextResponse.json(
-        { error: "Ya existe una invitacion pendiente para este email" },
+        { error: "Ya existe una invitación pendiente para este email" },
         { status: 400 }
       )
     }
@@ -88,7 +98,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error("Error creating invitation:", insertError)
       return NextResponse.json(
-        { error: "Error al crear la invitacion" },
+        { error: "Error al crear la invitación" },
         { status: 500 }
       )
     }
@@ -100,7 +110,7 @@ export async function POST(request: NextRequest) {
     const { error: emailError } = await resend.emails.send({
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
-      subject: "Invitacion a Mipibo - Tu acceso al curso",
+      subject: "Invitación a Mipibo - Tu acceso al curso",
       html: `
         <!DOCTYPE html>
         <html>
@@ -117,20 +127,20 @@ export async function POST(request: NextRequest) {
               ${fullName ? `<p style="margin-bottom: 16px;">Hola ${fullName},</p>` : ""}
 
               <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
-                Has sido invitado a unirte a Mipibo, tu plataforma de preparacion para universidades argentinas.
+                Has sido invitado a unirte a Mipibo, tu plataforma de preparación para universidades argentinas.
               </p>
 
               <p style="margin-bottom: 32px; line-height: 1.6; color: #CBD5E1;">
-                Haz clic en el boton de abajo para completar tu registro y acceder al curso:
+                Haz clic en el botón de abajo para completar tu registro y acceder al curso:
               </p>
 
               <a href="${inviteUrl}"
                  style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-                Aceptar Invitacion
+                Aceptar Invitación
               </a>
 
               <p style="margin-top: 32px; font-size: 14px; color: #94A3B8;">
-                Este enlace expira en 7 dias.
+                Este enlace expira en 7 días.
               </p>
 
               <p style="margin-top: 16px; font-size: 14px; color: #94A3B8;">
@@ -153,14 +163,14 @@ export async function POST(request: NextRequest) {
       // Still return success since the invitation was created
       return NextResponse.json({
         success: true,
-        message: "Invitacion creada pero hubo un error al enviar el email",
+        message: "Invitación creada pero hubo un error al enviar el email",
         inviteUrl, // Include URL for manual sharing
       })
     }
 
     return NextResponse.json({
       success: true,
-      message: "Invitacion enviada correctamente",
+      message: "Invitación enviada correctamente",
     })
   } catch (error) {
     console.error("Error in invite API:", error)
@@ -207,7 +217,7 @@ export async function GET() {
 
     if (error) {
       return NextResponse.json(
-        { error: "Error al obtener invitaciones" },
+        { error: "Error al obtener invitaciónes" },
         { status: 500 }
       )
     }
