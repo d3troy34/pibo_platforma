@@ -34,13 +34,27 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         return
       }
 
-      const { error } = await supabase.from("direct_messages").insert({
-        student_id: studentId,
-        sender_id: user.id,
-        message: trimmedMessage,
-      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from("direct_messages") as any)
+        .insert({
+          student_id: studentId,
+          sender_id: user.id,
+          message: trimmedMessage,
+        })
+        .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        console.error("Supabase insert error:", error)
+        throw error
+      }
+
+      if (!data) {
+        console.error("No data returned from insert - RLS may be blocking")
+        throw new Error("Message was not saved")
+      }
+
+      console.log("Message saved:", data)
 
       setMessage("")
       onMessageSent?.()
