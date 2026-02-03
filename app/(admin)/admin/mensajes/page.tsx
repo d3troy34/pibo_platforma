@@ -61,15 +61,17 @@ async function getStudentConversations(): Promise<StudentConversation[]> {
   // Group by student and get latest message for each
   const studentMap = new Map<string, StudentConversation>()
 
-  for (const msg of conversations) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const msg of conversations as any[]) {
     const studentId = msg.student_id
     if (!studentMap.has(studentId)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const student = msg.student as any
 
       // Count unread messages from this student
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const unreadCount = conversations.filter(
-        (m) =>
+        (m: any) =>
           m.student_id === studentId &&
           m.sender_id === studentId &&
           !m.read_at
