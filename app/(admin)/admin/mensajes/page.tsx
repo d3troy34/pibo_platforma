@@ -69,8 +69,8 @@ async function getStudentConversations(): Promise<StudentConversation[]> {
       const student = msg.student as any
 
       // Count unread messages from this student
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const unreadCount = conversations.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (m: any) =>
           m.student_id === studentId &&
           m.sender_id === studentId &&
