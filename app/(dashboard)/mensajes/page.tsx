@@ -52,7 +52,11 @@ export default async function MensajesPage() {
     redirect("/login")
   }
 
+  console.log("Student mensajes page - User ID:", user.id)
+
   const messages = await getMessages(user.id)
+
+  console.log("Student mensajes page - Messages fetched:", messages.length)
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-3xl mx-auto">
@@ -60,6 +64,10 @@ export default async function MensajesPage() {
         <h1 className="text-2xl font-bold">Chat con el Instructor</h1>
         <p className="text-sm text-muted-foreground">
           Haz preguntas sobre el curso o el contenido
+        </p>
+        {/* Debug info - remove after testing */}
+        <p className="text-xs text-muted-foreground mt-1">
+          Debug: {messages.length} mensajes cargados | User: {user.id.slice(0, 8)}...
         </p>
       </div>
 
