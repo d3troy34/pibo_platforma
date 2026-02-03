@@ -73,6 +73,8 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
       <Textarea
+        id="chat-message"
+        name="message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Escribe tu mensaje..."
