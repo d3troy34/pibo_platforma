@@ -32,22 +32,26 @@ function getInitials(name: string | null): string {
 async function getStudentConversations(): Promise<StudentConversation[]> {
   const supabase = await createClient()
 
+  console.log("Admin: Fetching all conversations...")
+
   // Get all students who have sent or received messages
-  const { data: conversations, error } = await supabase
-    .from("direct_messages")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: conversations, error } = await (supabase.from("direct_messages") as any)
     .select(`
       student_id,
       message,
       created_at,
       sender_id,
       read_at,
-      student:profiles(
+      student:profiles!student_id(
         id,
         full_name,
         avatar_url
       )
     `)
     .order("created_at", { ascending: false })
+
+  console.log("Admin conversations result:", { error, count: conversations?.length })
 
   if (error || !conversations) {
     console.error("Error fetching conversations:", error)

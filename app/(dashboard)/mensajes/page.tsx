@@ -10,11 +10,13 @@ async function getMessages(userId: string) {
   try {
     const supabase = await createClient()
 
+    console.log("Fetching messages for user:", userId)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from("direct_messages") as any)
       .select(`
         *,
-        sender:profiles(
+        sender:profiles!sender_id(
           id,
           full_name,
           avatar_url,
@@ -23,6 +25,8 @@ async function getMessages(userId: string) {
       `)
       .eq("student_id", userId)
       .order("created_at", { ascending: true })
+
+    console.log("Messages query result:", { data, error, count: data?.length })
 
     if (error) {
       console.error("Error fetching messages:", error)
