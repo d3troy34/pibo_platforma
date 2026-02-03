@@ -62,9 +62,9 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
               <div className="w-8 mr-2 flex-shrink-0">
                 {showAvatar && (
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={msg.sender.avatar_url || undefined} />
+                    <AvatarImage src={msg.sender?.avatar_url || undefined} />
                     <AvatarFallback className="bg-primary/20 text-primary text-xs">
-                      {getInitials(msg.sender.full_name)}
+                      {getInitials(msg.sender?.full_name || null)}
                     </AvatarFallback>
                   </Avatar>
                 )}
@@ -80,7 +80,7 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
               {/* Sender name — only for other person, first in group */}
               {!isOwnMessage && !isSameSenderAsPrev && (
                 <span className="text-xs font-medium text-muted-foreground mb-1 ml-1">
-                  {msg.sender.full_name || "Instructor"}
+                  {msg.sender?.full_name || "Instructor"}
                 </span>
               )}
 
