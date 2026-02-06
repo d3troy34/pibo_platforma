@@ -23,8 +23,7 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isAdmin = (profile as any)?.role === "admin"
+  const isAdmin = profile?.role === "admin"
 
   // Check enrollment (admins bypass this check)
   const { data: enrollment } = await supabase
@@ -53,27 +52,21 @@ export default async function DashboardLayout({
   }
 
   // Calculate total progress
-  let totalProgress = 0
-  try {
-    const { data: modules } = await supabase
-      .from("modules")
-      .select("id")
-      .eq("is_published", true)
+  const { data: modules } = await supabase
+    .from("modules")
+    .select("id")
+    .eq("is_published", true)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: progress } = await (supabase.from("module_progress") as any)
-      .select("module_id")
-      .eq("user_id", user.id)
-      .eq("completed", true)
+  const { data: progress } = await supabase.from("module_progress")
+    .select("module_id")
+    .eq("user_id", user.id)
+    .eq("completed", true)
 
-    const totalModules = modules?.length || 0
-    const completedModules = progress?.length || 0
-    totalProgress = totalModules > 0
-      ? Math.round((completedModules / totalModules) * 100)
-      : 0
-  } catch {
-    // table may not exist yet
-  }
+  const totalModules = modules?.length || 0
+  const completedModules = progress?.length || 0
+  const totalProgress = totalModules > 0
+    ? Math.round((completedModules / totalModules) * 100)
+    : 0
 
   // Get latest announcement
   const { data: latestAnnouncement } = await supabase

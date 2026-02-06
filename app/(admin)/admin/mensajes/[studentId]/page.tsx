@@ -116,7 +116,7 @@ export default async function AdminStudentChatPage({
         </CardHeader>
         <CardContent className="flex flex-col h-[calc(100%-5rem)]">
           <div className="flex-1 overflow-y-auto mb-4 border rounded-lg bg-background">
-            <MessageList messages={messages} currentUserId={user.id} />
+            <MessageList messages={messages} currentUserId={user.id} studentId={studentId} />
           </div>
           <MessageInput studentId={studentId} />
         </CardContent>

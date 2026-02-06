@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import type { LessonResource } from "@/types/database"
+import type { ModuleResource } from "@/types/database"
 
 export default async function ContenidoPage() {
   const supabase = await createClient()
@@ -35,7 +35,7 @@ export default async function ContenidoPage() {
       <div className="space-y-4">
         {modules && modules.length > 0 ? (
           modules.map((module, index) => {
-            const resources = (module.resources as LessonResource[] | null) || []
+            const resources = (module.resources as ModuleResource[] | null) || []
             return (
               <Card key={module.id} className="border-border/50 bg-card/50">
                 <CardHeader className="pb-3">

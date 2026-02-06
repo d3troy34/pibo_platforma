@@ -6,7 +6,7 @@ import { VideoPlayer } from "@/components/video/video-player"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ModuleActions } from "./module-actions"
-import type { Module, ModuleProgress, LessonResource } from "@/types/database"
+import type { Module, ModuleProgress, ModuleResource } from "@/types/database"
 
 export async function generateMetadata({ params }: { params: { moduleId: string } }) {
   const supabase = await createClient()
@@ -44,20 +44,14 @@ export default async function ModulePage({ params }: ModulePageProps) {
     notFound()
   }
 
-  let progress: ModuleProgress | null = null
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: progressData } = await (supabase.from("module_progress") as any)
-      .select("*")
-      .eq("user_id", user!.id)
-      .eq("module_id", params.moduleId)
-      .single()
-    progress = progressData as ModuleProgress | null
-  } catch {
-    // table may not exist yet
-  }
+  const { data: progressData } = await supabase.from("module_progress")
+    .select("*")
+    .eq("user_id", user!.id)
+    .eq("module_id", params.moduleId)
+    .single()
+  const progress = progressData as ModuleProgress | null
 
-  const resources = (courseModule.resources as LessonResource[]) || []
+  const resources = (courseModule.resources as ModuleResource[]) || []
 
   // Get all modules for navigation
   const { data: allModulesData } = await supabase

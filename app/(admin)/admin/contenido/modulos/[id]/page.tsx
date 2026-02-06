@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -29,14 +29,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { createClient } from "@/lib/supabase/client"
-import type { Module, LessonResource } from "@/types/database"
+import type { Module, ModuleResource } from "@/types/database"
 
 const moduleSchema = z.object({
   title: z.string().min(1, "El titulo es requerido"),
   description: z.string().optional(),
   bunny_video_guid: z.string().optional(),
-  duration_seconds: z.coerce.number().min(0).optional(),
-  order_index: z.coerce.number().min(0, "El orden debe ser mayor o igual a 0"),
+  duration_seconds: z.number().min(0).optional(),
+  order_index: z.number().min(0, "El orden debe ser mayor o igual a 0"),
   is_published: z.boolean(),
 })
 
@@ -47,10 +47,10 @@ export default function EditModuloPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [module, setModule] = useState<Module | null>(null)
-  const [resources, setResources] = useState<LessonResource[]>([])
+  const [resources, setResources] = useState<ModuleResource[]>([])
   const router = useRouter()
   const params = useParams<{ id: string }>()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const {
     register,
@@ -60,8 +60,7 @@ export default function EditModuloPage() {
     reset,
     formState: { errors },
   } = useForm<ModuleForm>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(moduleSchema) as any,
+    resolver: zodResolver(moduleSchema),
   })
 
   const isPublished = watch("is_published")
@@ -76,7 +75,7 @@ export default function EditModuloPage() {
 
       if (moduleData) {
         setModule(moduleData)
-        setResources((moduleData.resources as LessonResource[] | null) || [])
+        setResources((moduleData.resources as ModuleResource[] | null) || [])
         reset({
           title: moduleData.title,
           description: moduleData.description || "",
@@ -94,8 +93,7 @@ export default function EditModuloPage() {
   const onSubmit = async (data: ModuleForm) => {
     setIsLoading(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("modules") as any)
+      const { error } = await supabase.from("modules")
         .update({
           title: data.title,
           description: data.description || null,
@@ -121,8 +119,7 @@ export default function EditModuloPage() {
   const handleDeleteModule = async () => {
     setIsDeleting(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("modules") as any)
+      const { error } = await supabase.from("modules")
         .delete()
         .eq("id", params.id)
 
@@ -163,8 +160,7 @@ export default function EditModuloPage() {
       const newResources = [...resources, result.resource]
       setResources(newResources)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("modules") as any)
+      await supabase.from("modules")
         .update({ resources: newResources })
         .eq("id", params.id)
 
@@ -190,8 +186,7 @@ export default function EditModuloPage() {
       const newResources = resources.filter((_, i) => i !== index)
       setResources(newResources)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("modules") as any)
+      await supabase.from("modules")
         .update({ resources: newResources })
         .eq("id", params.id)
 
@@ -285,11 +280,11 @@ export default function EditModuloPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="duration_seconds">Duracion (segundos)</Label>
-                  <Input id="duration_seconds" type="number" min={0} {...register("duration_seconds")} />
+                  <Input id="duration_seconds" type="number" min={0} {...register("duration_seconds", { valueAsNumber: true })} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="order_index">Orden</Label>
-                  <Input id="order_index" type="number" min={0} {...register("order_index")} />
+                  <Input id="order_index" type="number" min={0} {...register("order_index", { valueAsNumber: true })} />
                 </div>
               </div>
 

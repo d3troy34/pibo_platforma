@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -10,6 +11,7 @@ import type { DirectMessageWithSender } from "@/types/database"
 interface MessageListProps {
   messages: DirectMessageWithSender[]
   currentUserId: string
+  studentId: string
 }
 
 function getInitials(name: string | null): string {
@@ -22,9 +24,62 @@ function getInitials(name: string | null): string {
     .slice(0, 2)
 }
 
-export function MessageList({ messages, currentUserId }: MessageListProps) {
+export function MessageList({ messages: initialMessages, currentUserId, studentId }: MessageListProps) {
+  const [messages, setMessages] = useState<DirectMessageWithSender[]>(initialMessages)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Sync with server-provided messages when they change (e.g. navigation)
+  useEffect(() => {
+    setMessages(initialMessages)
+  }, [initialMessages])
+
+  // Subscribe to real-time INSERT events on direct_messages
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel(`messages:${studentId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+          filter: `student_id=eq.${studentId}`,
+        },
+        async (payload) => {
+          // Fetch sender profile for the new message
+          const { data: sender } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, role')
+            .eq('id', payload.new.sender_id)
+            .single()
+
+          const newMessage = {
+            ...payload.new,
+            sender: sender || {
+              id: payload.new.sender_id,
+              full_name: null,
+              avatar_url: null,
+              role: 'student' as const,
+            },
+          } as DirectMessageWithSender
+
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some((m) => m.id === newMessage.id)) return prev
+            return [...prev, newMessage]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [studentId])
+
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])

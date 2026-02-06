@@ -10,8 +10,7 @@ async function getMessages(userId: string) {
   try {
     const supabase = await createClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from("direct_messages") as any)
+    const { data, error } = await supabase.from("direct_messages")
       .select(`
         *,
         sender:profiles!sender_id(
@@ -29,8 +28,7 @@ async function getMessages(userId: string) {
       return []
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data as any as DirectMessageWithSender[]) || []
+    return (data as DirectMessageWithSender[]) || []
   } catch (error) {
     console.error("Error fetching messages:", error)
     return []
@@ -59,11 +57,11 @@ export default async function MensajesPage() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto rounded-t-xl border border-b-0 bg-white">
-        <MessageList messages={messages} currentUserId={user.id} />
+      <div className="flex-1 overflow-y-auto rounded-t-xl border border-b-0 bg-background">
+        <MessageList messages={messages} currentUserId={user.id} studentId={user.id} />
       </div>
 
-      <div className="border rounded-b-xl bg-white p-3">
+      <div className="border rounded-b-xl bg-background p-3">
         <MessageInput studentId={user.id} />
       </div>
     </div>

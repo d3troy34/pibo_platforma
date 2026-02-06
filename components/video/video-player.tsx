@@ -79,13 +79,7 @@ export function VideoPlayer({
   )
 
   useEffect(() => {
-    // Load player.js library
-    const script = document.createElement("script")
-    script.src = "https://cdn.jsdelivr.net/npm/player.js@0.1.0/dist/player.min.js"
-    script.async = true
-    document.body.appendChild(script)
-
-    script.onload = () => {
+    const initializePlayer = () => {
       if (iframeRef.current && window.playerjs) {
         const player = new window.playerjs.Player(iframeRef.current)
 
@@ -127,14 +121,34 @@ export function VideoPlayer({
       }
     }
 
+    // Check if player.js is already loaded
+    if (window.playerjs) {
+      // Script already loaded, initialize player directly
+      initializePlayer()
+      return
+    }
+
+    // Check if script tag already exists
+    const existingScript = document.querySelector('script[src*="player.js"]')
+    if (existingScript) {
+      existingScript.addEventListener("load", initializePlayer)
+      return
+    }
+
+    // Load player.js library
+    const script = document.createElement("script")
+    script.src = "https://cdn.jsdelivr.net/npm/player.js@0.1.0/dist/player.min.js"
+    script.async = true
+    document.body.appendChild(script)
+
+    script.onload = initializePlayer
+
     script.onerror = () => {
       setIsLoading(false)
     }
 
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script)
-      }
+      // Don't remove the script - it persists for reuse across navigations
     }
   }, [videoGuid, initialProgress, saveProgress])
 

@@ -14,8 +14,11 @@ import {
   UserPlus,
   MessageSquare,
   Megaphone,
+  Moon,
+  Sun,
 } from "lucide-react"
 import { toast } from "sonner"
+import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -66,6 +69,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
   const supabase = createClient()
 
   const handleLogout = async () => {
@@ -109,7 +113,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-50 border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-secondary/50 border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -163,6 +167,13 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full mb-2"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? "Modo claro" : "Modo oscuro"}
+            </button>
             <Button
               variant="outline"
               className="w-full justify-start gap-2"

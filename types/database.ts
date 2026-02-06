@@ -87,54 +87,6 @@ export type Database = {
         }
         Relationships: []
       }
-      lessons: {
-        Row: {
-          id: string
-          module_id: string
-          title: string
-          description: string | null
-          bunny_video_id: string | null
-          bunny_video_guid: string | null
-          duration_seconds: number
-          thumbnail_url: string | null
-          resources: Json
-          order_index: number
-          is_published: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          module_id: string
-          title: string
-          description?: string | null
-          bunny_video_id?: string | null
-          bunny_video_guid?: string | null
-          duration_seconds?: number
-          thumbnail_url?: string | null
-          resources?: Json
-          order_index?: number
-          is_published?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          module_id?: string
-          title?: string
-          description?: string | null
-          bunny_video_id?: string | null
-          bunny_video_guid?: string | null
-          duration_seconds?: number
-          thumbnail_url?: string | null
-          resources?: Json
-          order_index?: number
-          is_published?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       enrollments: {
         Row: {
           id: string
@@ -181,43 +133,15 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
-      }
-      lesson_progress: {
-        Row: {
-          id: string
-          user_id: string
-          lesson_id: string
-          progress_seconds: number
-          completed: boolean
-          completed_at: string | null
-          last_watched_at: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          lesson_id: string
-          progress_seconds?: number
-          completed?: boolean
-          completed_at?: string | null
-          last_watched_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          lesson_id?: string
-          progress_seconds?: number
-          completed?: boolean
-          completed_at?: string | null
-          last_watched_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       direct_messages: {
         Row: {
@@ -244,7 +168,22 @@ export type Database = {
           created_at?: string
           read_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       announcements: {
         Row: {
@@ -274,7 +213,15 @@ export type Database = {
           published_at?: string | null
           is_active?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       module_progress: {
         Row: {
@@ -310,7 +257,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "module_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       invitations: {
         Row: {
@@ -340,7 +302,15 @@ export type Database = {
           expires_at?: string
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
@@ -368,16 +338,14 @@ export type Database = {
 // Helper types
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"]
 export type Module = Database["public"]["Tables"]["modules"]["Row"]
-export type Lesson = Database["public"]["Tables"]["lessons"]["Row"]
 export type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"]
-export type LessonProgress = Database["public"]["Tables"]["lesson_progress"]["Row"]
 export type ModuleProgress = Database["public"]["Tables"]["module_progress"]["Row"]
 export type Invitation = Database["public"]["Tables"]["invitations"]["Row"]
 export type DirectMessage = Database["public"]["Tables"]["direct_messages"]["Row"]
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]
 
-// Resource type for lessons
-export type LessonResource = {
+// Resource type for modules
+export type ModuleResource = {
   name: string
   url: string
   type: "pdf" | "doc" | "video" | "link" | "other"

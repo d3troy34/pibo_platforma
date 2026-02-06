@@ -54,31 +54,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Check admin access
-  if (isAdminRoute && user) {
+  // After getting user, do ONE profile query if user exists and path needs it
+  if (user && (isProtectedRoute || isAdminRoute || isAuthRoute)) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    if (profile?.role !== "admin") {
+    // Check admin access
+    if (isAdminRoute && profile?.role !== "admin") {
       return NextResponse.redirect(new URL("/curso", request.url))
     }
-  }
 
-  // Redirect authenticated users away from auth pages
-  if (isAuthRoute && user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-
-    if (profile?.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url))
+    // Redirect authenticated users away from auth pages
+    if (isAuthRoute) {
+      if (profile?.role === "admin") {
+        return NextResponse.redirect(new URL("/admin", request.url))
+      }
+      return NextResponse.redirect(new URL("/curso", request.url))
     }
-    return NextResponse.redirect(new URL("/curso", request.url))
   }
 
   return response

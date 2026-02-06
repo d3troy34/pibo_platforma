@@ -29,12 +29,6 @@ export default async function AdminDashboardPage() {
     .select("*", { count: "exact", head: true })
     .eq("is_published", true)
 
-  // Get total lessons
-  const { count: lessonCount } = await supabase
-    .from("lessons")
-    .select("*", { count: "exact", head: true })
-    .eq("is_published", true)
-
   // Get recent enrollments
   const { data: recentEnrollmentsData } = await supabase
     .from("enrollments")
@@ -73,10 +67,10 @@ export default async function AdminDashboardPage() {
       description: "Publicados",
     },
     {
-      title: "Lecciones",
-      value: lessonCount || 0,
+      title: "Invitaciones",
+      value: pendingInvitations || 0,
       icon: PlayCircle,
-      description: "Disponibles",
+      description: "Pendientes",
     },
   ]
 

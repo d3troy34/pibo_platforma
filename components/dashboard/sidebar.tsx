@@ -12,11 +12,14 @@ import {
   X,
   MessageSquare,
   ShoppingBag,
-  Megaphone
+  Megaphone,
+  Moon,
+  Sun,
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -44,6 +47,7 @@ export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const { theme, setTheme } = useTheme()
   const supabase = createClient()
 
   const handleLogout = async () => {
@@ -88,7 +92,7 @@ export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gray-50 border-r border-border flex flex-col transition-transform duration-300",
+          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-secondary/50 border-r border-border flex flex-col transition-transform duration-300",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
@@ -153,8 +157,15 @@ export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
 
         <Separator />
 
-        {/* Logout */}
-        <div className="p-4">
+        {/* Theme toggle & Logout */}
+        <div className="p-4 space-y-1">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {theme === "dark" ? "Modo claro" : "Modo oscuro"}
+          </button>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"

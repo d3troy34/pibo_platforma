@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
@@ -13,7 +12,6 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
-  const router = useRouter()
   const [message, setMessage] = useState("")
   const [isSending, setIsSending] = useState(false)
 
@@ -54,14 +52,8 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         throw new Error("Message was not saved")
       }
 
-      console.log("Message saved:", data)
-
       setMessage("")
       onMessageSent?.()
-      toast.success("Mensaje enviado")
-      router.refresh()
-      // Fallback: hard reload to ensure server data is re-fetched
-      setTimeout(() => window.location.reload(), 500)
     } catch (error) {
       console.error("Error sending message:", error)
       toast.error("Error al enviar el mensaje")

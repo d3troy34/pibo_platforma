@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { resend } from "@/lib/resend/client"
+import { announcementEmail } from "@/lib/email-templates"
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,42 +59,7 @@ export async function POST(request: NextRequest) {
           from: "Mipibo <no-reply@mipibo.com>",
           to: student.email,
           subject: `📢 ${title}`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: linear-gradient(to right, #60A5FA, #22D3EE); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                  <h1 style="color: white; margin: 0; font-size: 28px;">Mipibo</h1>
-                </div>
-
-                <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
-                  <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                    <h2 style="color: #1f2937; margin-top: 0; font-size: 24px;">📢 ${title}</h2>
-
-                    <div style="margin: 20px 0; padding: 20px; background: #eff6ff; border-left: 4px solid #60A5FA; border-radius: 4px;">
-                      <p style="margin: 0; white-space: pre-wrap;">${content}</p>
-                    </div>
-
-                    <div style="margin-top: 30px; text-align: center;">
-                      <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://mipibo.com'}/anuncios"
-                         style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 500;">
-                        Ver en la Plataforma
-                      </a>
-                    </div>
-                  </div>
-
-                  <p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 20px;">
-                    Este es un anuncio oficial de Mipibo<br>
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://mipibo.com'}" style="color: #60A5FA; text-decoration: none;">mipibo.com</a>
-                  </p>
-                </div>
-              </body>
-            </html>
-          `,
+          html: announcementEmail(title, content),
         })
         return { success: true, email: student.email }
       } catch (error) {

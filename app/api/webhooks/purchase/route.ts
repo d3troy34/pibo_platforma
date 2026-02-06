@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resend } from "@/lib/resend/client"
+import { welcomeEmail } from "@/lib/email-templates"
 import { createHmac } from "crypto"
+
+const COURSE_PRICE_USD = 180
+
+type PaymentProvider = "stripe" | "dlocal" | "manual"
 
 interface PurchaseWebhookPayload {
   email: string
@@ -10,13 +15,16 @@ interface PurchaseWebhookPayload {
   amount?: number
   currency?: string
   payment_provider?: string
-  timestamp?: string
-  signature?: string // Legacy: signature in body (deprecated, use header instead)
+}
+
+function toPaymentProvider(value?: string): PaymentProvider {
+  if (value === "stripe" || value === "dlocal" || value === "manual") return value
+  return "manual"
 }
 
 function verifyWebhookSignature(payload: string, signature: string | null): boolean {
   if (!signature) {
-    console.error("No signature provided")
+    console.error("No signature provided in x-webhook-signature header")
     return false
   }
 
@@ -47,13 +55,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get signature from header (preferred) or body (legacy/backwards compatible)
-    const headerSignature = request.headers.get("x-webhook-signature")
-    const bodySignature = body.signature
+    // Verify webhook signature from header against raw body
+    const signature = request.headers.get("x-webhook-signature")
 
-    // Verify webhook signature against raw body
-    // Try header first, then fall back to body signature for backwards compatibility
-    if (!verifyWebhookSignature(rawBody, headerSignature || bodySignature || null)) {
+    if (!verifyWebhookSignature(rawBody, signature)) {
       console.error("Error: Invalid signature")
       return NextResponse.json(
         { error: "Invalid signature" },
@@ -82,15 +87,14 @@ export async function POST(request: NextRequest) {
 
     if (existingProfile) {
       // User already exists - just ensure they have enrollment (use upsert for idempotency)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabaseAdmin.from("enrollments") as any)
+      await supabaseAdmin.from("enrollments")
         .upsert({
           user_id: existingProfile.id,
-          payment_provider: payment_provider || "manual",
+          payment_provider: toPaymentProvider(payment_provider),
           payment_id: purchase_id,
           payment_status: "completed",
           payment_method: "mipibo_purchase",
-          amount_usd: amount || 180,
+          amount_usd: amount || COURSE_PRICE_USD,
           currency: currency || "USD",
           enrolled_at: new Date().toISOString(),
         }, { onConflict: "user_id" })
@@ -113,23 +117,21 @@ export async function POST(request: NextRequest) {
 
     // Handle case where user already exists in auth but not in profiles
     if (authError) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((authError as any).code === "email_exists") {
+      if ((authError as { code?: string }).code === "email_exists") {
         // User exists in auth - find them and ensure enrollment
         const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
         const existingUser = authUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
 
         if (existingUser) {
           // Use upsert for idempotency
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabaseAdmin.from("enrollments") as any)
+          await supabaseAdmin.from("enrollments")
             .upsert({
               user_id: existingUser.id,
-              payment_provider: payment_provider || "manual",
+              payment_provider: toPaymentProvider(payment_provider),
               payment_id: purchase_id,
               payment_status: "completed",
               payment_method: "mipibo_purchase",
-              amount_usd: amount || 180,
+              amount_usd: amount || COURSE_PRICE_USD,
               currency: currency || "USD",
               enrolled_at: new Date().toISOString(),
             }, { onConflict: "user_id" })
@@ -152,23 +154,21 @@ export async function POST(request: NextRequest) {
     const userId = authData.user.id
 
     // Update profile with full name
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin.from("profiles") as any)
+    await supabaseAdmin.from("profiles")
       .update({
         full_name,
       })
       .eq("id", userId)
 
     // Create enrollment (use upsert for idempotency)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: enrollmentError } = await (supabaseAdmin.from("enrollments") as any)
+    const { error: enrollmentError } = await supabaseAdmin.from("enrollments")
       .upsert({
         user_id: userId,
-        payment_provider: payment_provider || "manual",
+        payment_provider: toPaymentProvider(payment_provider),
         payment_id: purchase_id,
         payment_status: "completed",
         payment_method: "mipibo_purchase",
-        amount_usd: amount || 180,
+        amount_usd: amount || COURSE_PRICE_USD,
         currency: currency || "USD",
         enrolled_at: new Date().toISOString(),
       }, { onConflict: "user_id" })
@@ -200,59 +200,7 @@ export async function POST(request: NextRequest) {
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
       subject: "Bienvenido a Mipibo - Configura tu acceso",
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
-              <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-                ¡Bienvenido a Mipibo, ${full_name}!
-              </h1>
-
-              <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
-                Tu cuenta ha sido creada exitosamente. Ya puedes acceder a todo el contenido del curso.
-              </p>
-
-              <div style="background-color: #334155; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
-                <h2 style="color: #7DD3FC; margin-top: 0; margin-bottom: 16px; font-size: 18px;">
-                  Configura tu contraseña:
-                </h2>
-
-                <p style="margin: 8px 0; color: #F0F9FF;">
-                  <strong>Email:</strong> ${email}
-                </p>
-
-                <p style="margin: 12px 0; color: #CBD5E1; font-size: 14px;">
-                  Haz clic en el botón de abajo para configurar tu contraseña y acceder al curso.
-                </p>
-              </div>
-
-              <a href="${resetUrl}"
-                 style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-                Configurar Contraseña
-              </a>
-
-              <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
-                Este enlace expira en 24 horas. Si tienes problemas, puedes solicitar un nuevo enlace desde la página de inicio de sesión.
-              </p>
-
-              <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
-
-              <p style="font-size: 12px; color: #64748B;">
-                Si no solicitaste esta cuenta, puedes ignorar este email.
-              </p>
-
-              <p style="font-size: 12px; color: #64748B; margin-top: 16px;">
-                © ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      html: welcomeEmail(full_name, email, resetUrl),
     })
 
     if (emailError) {

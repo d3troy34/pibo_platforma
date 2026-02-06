@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 import { resend } from "@/lib/resend/client"
+import { invitationEmail } from "@/lib/email-templates"
 import { checkRateLimit } from "@/lib/rate-limit"
 import { randomBytes } from "crypto"
 import type { Profile } from "@/types/database"
@@ -86,8 +87,7 @@ export async function POST(request: NextRequest) {
     expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiration
 
     // Create invitation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (supabaseAdmin.from("invitations") as any)
+    const { error: insertError } = await supabaseAdmin.from("invitations")
       .insert({
         email: email.toLowerCase(),
         token,
@@ -111,51 +111,7 @@ export async function POST(request: NextRequest) {
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
       subject: "Invitación a Mipibo - Tu acceso al curso",
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
-              <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-                Bienvenido a Mipibo
-              </h1>
-
-              ${fullName ? `<p style="margin-bottom: 16px;">Hola ${fullName},</p>` : ""}
-
-              <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
-                Has sido invitado a unirte a Mipibo, tu plataforma de preparación para universidades argentinas.
-              </p>
-
-              <p style="margin-bottom: 32px; line-height: 1.6; color: #CBD5E1;">
-                Haz clic en el botón de abajo para completar tu registro y acceder al curso:
-              </p>
-
-              <a href="${inviteUrl}"
-                 style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-                Aceptar Invitación
-              </a>
-
-              <p style="margin-top: 32px; font-size: 14px; color: #94A3B8;">
-                Este enlace expira en 7 días.
-              </p>
-
-              <p style="margin-top: 16px; font-size: 14px; color: #94A3B8;">
-                Si no esperabas este email, puedes ignorarlo.
-              </p>
-
-              <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
-
-              <p style="font-size: 12px; color: #64748B;">
-                © ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      html: invitationEmail(fullName, inviteUrl),
     })
 
     if (emailError) {
