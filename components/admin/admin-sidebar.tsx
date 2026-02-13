@@ -69,8 +69,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const supabase = createClient()
+
+  const currentTheme = resolvedTheme || theme
+  const isDark = currentTheme === "dark"
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -168,11 +171,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
               </div>
             </div>
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(isDark ? "light" : "dark")}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full mb-2"
             >
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {theme === "dark" ? "Modo claro" : "Modo oscuro"}
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {isDark ? "Modo claro" : "Modo oscuro"}
             </button>
             <Button
               variant="outline"

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { PaidAccessRequired } from "@/components/paywall/paid-access-required"
 import { MessageList } from "@/components/chat/message-list"
 import { MessageInput } from "@/components/chat/message-input"
 import type { DirectMessageWithSender } from "@/types/database"
@@ -44,6 +45,33 @@ export default async function MensajesPage() {
 
   if (!user) {
     redirect("/login")
+  }
+
+  // Paid-only section (admins bypass).
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  const isAdmin = profile?.role === "admin"
+
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .single()
+
+    if (!enrollment) {
+      return (
+        <PaidAccessRequired
+          title="Mensajes bloqueados"
+          description="El chat con el instructor es parte del acceso completo al curso. Compra tu acceso para desbloquear todos los modulos y soporte."
+        />
+      )
+    }
   }
 
   const messages = await getMessages(user.id)

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { PaidAccessRequired } from "@/components/paywall/paid-access-required"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Megaphone } from "lucide-react"
 import { format } from "date-fns"
@@ -41,6 +42,33 @@ export default async function AnunciosPage() {
 
   if (!user) {
     redirect("/login")
+  }
+
+  // Paid-only section (admins bypass).
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  const isAdmin = profile?.role === "admin"
+
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .single()
+
+    if (!enrollment) {
+      return (
+        <PaidAccessRequired
+          title="Anuncios bloqueados"
+          description="Los anuncios del curso se habilitan con el acceso completo. Compra tu acceso para desbloquear todos los modulos y novedades."
+        />
+      )
+    }
   }
 
   const announcements = await getAnnouncements()

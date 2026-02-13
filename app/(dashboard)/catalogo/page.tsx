@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { PaidAccessRequired } from "@/components/paywall/paid-access-required"
 import { Card, CardContent } from "@/components/ui/card"
 import { ShoppingBag, Sparkles } from "lucide-react"
 
@@ -12,6 +13,33 @@ export default async function CatalogoPage() {
 
   if (!user) {
     redirect("/login")
+  }
+
+  // Paid-only section (admins bypass).
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  const isAdmin = profile?.role === "admin"
+
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .single()
+
+    if (!enrollment) {
+      return (
+        <PaidAccessRequired
+          title="Catalogo bloqueado"
+          description="El catalogo y contenido extra se habilitan con el acceso completo. Compra tu acceso para desbloquear todo el curso."
+        />
+      )
+    }
   }
 
   return (

@@ -13,6 +13,7 @@ import {
   MessageSquare,
   ShoppingBag,
   Megaphone,
+  Lock,
   Moon,
   Sun,
 } from "lucide-react"
@@ -36,20 +37,23 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: "Mi Curso", href: "/curso", icon: BookOpen },
-  { name: "Mi Progreso", href: "/progreso", icon: BarChart3 },
-  { name: "Mensajes", href: "/mensajes", icon: MessageSquare },
-  { name: "Anuncios", href: "/anuncios", icon: Megaphone },
-  { name: "Catálogo", href: "/catalogo", icon: ShoppingBag },
-  { name: "Mi Perfil", href: "/perfil", icon: User },
+  { name: "Mi Curso", href: "/curso", icon: BookOpen, requiresPaid: false },
+  { name: "Mi Progreso", href: "/progreso", icon: BarChart3, requiresPaid: true },
+  { name: "Mensajes", href: "/mensajes", icon: MessageSquare, requiresPaid: true },
+  { name: "Anuncios", href: "/anuncios", icon: Megaphone, requiresPaid: true },
+  { name: "Catálogo", href: "/catalogo", icon: ShoppingBag, requiresPaid: true },
+  { name: "Mi Perfil", href: "/perfil", icon: User, requiresPaid: true },
 ]
 
 export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const supabase = createClient()
+
+  const currentTheme = resolvedTheme || theme
+  const isDark = currentTheme === "dark"
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -139,6 +143,7 @@ export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: Sideb
         <nav className="flex-1 p-4 space-y-1">
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href)
+            const isLocked = item.requiresPaid && !hasEnrollment
             return (
               <Link
                 key={item.name}
@@ -153,6 +158,7 @@ export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: Sideb
               >
                 <item.icon className="h-5 w-5" />
                 {item.name}
+                {isLocked && <Lock className="h-4 w-4 ml-auto opacity-70" />}
               </Link>
             )
           })}
@@ -163,11 +169,11 @@ export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: Sideb
         {/* Theme toggle & Logout */}
         <div className="p-4 space-y-1">
           <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
           >
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            {theme === "dark" ? "Modo claro" : "Modo oscuro"}
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {isDark ? "Modo claro" : "Modo oscuro"}
           </button>
           <Button
             variant="ghost"

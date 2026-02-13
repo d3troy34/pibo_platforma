@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { PaidAccessRequired } from "@/components/paywall/paid-access-required"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +16,37 @@ export default async function ProgressPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect("/login")
+  }
+
+  // Paid-only section (admins bypass).
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  const isAdmin = profile?.role === "admin"
+
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .single()
+
+    if (!enrollment) {
+      return (
+        <PaidAccessRequired
+          title="Progreso bloqueado"
+          description="El seguimiento de progreso es parte del acceso completo al curso. Compra tu acceso para desbloquear todos los modulos y secciones."
+        />
+      )
+    }
+  }
+
   // Get all published modules
   const { data: modulesData } = await supabase
     .from("modules")
@@ -26,7 +59,7 @@ export default async function ProgressPage() {
   // Get all module progress
   const { data: progressData } = await supabase.from("module_progress")
     .select("*")
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
   const progress = progressData as ModuleProgress[] | null
 
   const progressMap = new Map(progress?.map((p) => [p.module_id, p]) || [])
