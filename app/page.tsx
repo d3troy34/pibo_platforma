@@ -46,14 +46,9 @@ export default async function HomePage() {
 
         <p className="text-sm text-muted-foreground">
           No tenes cuenta?{" "}
-          <a
-            href="https://estudiaargentina.com"
-            className="text-primary hover:underline font-medium"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Visita estudiaargentina.com
-          </a>
+          <Link href="/register" className="text-primary hover:underline font-medium">
+            Crear cuenta gratis
+          </Link>
         </p>
       </div>
     </div>

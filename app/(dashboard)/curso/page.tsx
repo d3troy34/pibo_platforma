@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { ModuleCard } from "@/components/dashboard/module-card"
+import { canAccessModule } from "@/lib/access"
 import type { Module, ModuleProgress } from "@/types/database"
 
 export const metadata = {
@@ -10,6 +11,23 @@ export const metadata = {
 export default async function CoursePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Check enrollment and role
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id")
+    .eq("user_id", user!.id)
+    .eq("payment_status", "completed")
+    .single()
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user!.id)
+    .single()
+
+  const hasEnrollment = !!enrollment
+  const isAdmin = profile?.role === "admin"
 
   const { data: modulesData } = await supabase
     .from("modules")
@@ -48,6 +66,7 @@ export default async function CoursePage() {
               key={module.id}
               module={module}
               isCompleted={completedModuleIds.has(module.id)}
+              isLocked={!canAccessModule(hasEnrollment, isAdmin, module.order_index)}
             />
           ))}
         </div>

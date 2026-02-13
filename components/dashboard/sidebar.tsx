@@ -32,6 +32,7 @@ import type { Profile } from "@/types/database"
 interface SidebarProps {
   user: Profile | null
   totalProgress?: number
+  hasEnrollment?: boolean
 }
 
 const navigation = [
@@ -43,7 +44,7 @@ const navigation = [
   { name: "Mi Perfil", href: "/perfil", icon: User },
 ]
 
-export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
+export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
@@ -121,13 +122,15 @@ export function Sidebar({ user, totalProgress = 0 }: SidebarProps) {
           </div>
 
           {/* Progress */}
-          <div className="mt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progreso total</span>
-              <span className="font-medium text-primary">{totalProgress}%</span>
+          {hasEnrollment && (
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progreso total</span>
+                <span className="font-medium text-primary">{totalProgress}%</span>
+              </div>
+              <Progress value={totalProgress} className="h-2" />
             </div>
-            <Progress value={totalProgress} className="h-2" />
-          </div>
+          )}
         </div>
 
         <Separator />

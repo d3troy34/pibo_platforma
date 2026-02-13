@@ -33,40 +33,27 @@ export default async function DashboardLayout({
     .eq("payment_status", "completed")
     .single()
 
-  // If not enrolled and not admin, show a message
-  if (!enrollment && !isAdmin) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <div className="max-w-md text-center space-y-4">
-          <h1 className="text-2xl font-bold">Acceso no disponible</h1>
-          <p className="text-muted-foreground">
-            Tu cuenta aun no tiene acceso al curso. Si ya realizaste tu compra,
-            por favor contacta a soporte.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Email: {user.email}
-          </p>
-        </div>
-      </div>
-    )
+  const hasEnrollment = !!enrollment
+
+  // Calculate total progress (only for enrolled users or admins)
+  let totalProgress = 0
+  if (hasEnrollment || isAdmin) {
+    const { data: modules } = await supabase
+      .from("modules")
+      .select("id")
+      .eq("is_published", true)
+
+    const { data: progress } = await supabase.from("module_progress")
+      .select("module_id")
+      .eq("user_id", user.id)
+      .eq("completed", true)
+
+    const totalModules = modules?.length || 0
+    const completedModules = progress?.length || 0
+    totalProgress = totalModules > 0
+      ? Math.round((completedModules / totalModules) * 100)
+      : 0
   }
-
-  // Calculate total progress
-  const { data: modules } = await supabase
-    .from("modules")
-    .select("id")
-    .eq("is_published", true)
-
-  const { data: progress } = await supabase.from("module_progress")
-    .select("module_id")
-    .eq("user_id", user.id)
-    .eq("completed", true)
-
-  const totalModules = modules?.length || 0
-  const completedModules = progress?.length || 0
-  const totalProgress = totalModules > 0
-    ? Math.round((completedModules / totalModules) * 100)
-    : 0
 
   // Get latest announcement
   const { data: latestAnnouncement } = await supabase
@@ -81,7 +68,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen gradient-bg">
-      <Sidebar user={profile} totalProgress={totalProgress} />
+      <Sidebar user={profile} totalProgress={totalProgress} hasEnrollment={hasEnrollment || isAdmin} />
       <main className="flex-1 overflow-y-auto">
         <AnnouncementBanner announcement={(latestAnnouncement as Announcement) || null} />
         <div className="container py-8 px-4 lg:px-8">

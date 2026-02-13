@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, FileText, Download, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, FileText, Download, CheckCircle2, Lock } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import { canAccessModule } from "@/lib/access"
 import { VideoPlayer } from "@/components/video/video-player"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,14 +45,22 @@ export default async function ModulePage({ params }: ModulePageProps) {
     notFound()
   }
 
-  const { data: progressData } = await supabase.from("module_progress")
-    .select("*")
+  // Access check
+  const { data: enrollment } = await supabase
+    .from("enrollments")
+    .select("id")
     .eq("user_id", user!.id)
-    .eq("module_id", params.moduleId)
+    .eq("payment_status", "completed")
     .single()
-  const progress = progressData as ModuleProgress | null
 
-  const resources = (courseModule.resources as ModuleResource[]) || []
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user!.id)
+    .single()
+
+  const hasEnrollment = !!enrollment
+  const isAdmin = profile?.role === "admin"
 
   // Get all modules for navigation
   const { data: allModulesData } = await supabase
@@ -65,6 +74,48 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const currentIndex = allModules?.findIndex((m) => m.id === params.moduleId) ?? -1
   const prevModule = currentIndex > 0 ? allModules?.[currentIndex - 1] : null
   const nextModule = currentIndex < (allModules?.length ?? 0) - 1 ? allModules?.[currentIndex + 1] : null
+
+  // If user can't access this module, show paywall (no video/resources leaked)
+  if (!canAccessModule(hasEnrollment, isAdmin, courseModule.order_index)) {
+    return (
+      <div className="space-y-6">
+        <Link href="/curso">
+          <Button variant="ghost" size="sm" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Volver al curso
+          </Button>
+        </Link>
+
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="py-16 text-center space-y-4">
+            <Lock className="h-12 w-12 text-muted-foreground mx-auto" />
+            <h2 className="text-2xl font-bold">Contenido bloqueado</h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              Este modulo requiere acceso completo al curso. Compra tu acceso para desbloquear todos los modulos.
+            </p>
+            <a
+              href="https://estudiaargentina.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="btn-gradient text-primary-foreground mt-4">
+                Comprar acceso completo
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const { data: progressData } = await supabase.from("module_progress")
+    .select("*")
+    .eq("user_id", user!.id)
+    .eq("module_id", params.moduleId)
+    .single()
+  const progress = progressData as ModuleProgress | null
+
+  const resources = (courseModule.resources as ModuleResource[]) || []
 
   return (
     <div className="space-y-6">
@@ -111,7 +162,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
           {/* Navigation */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
-            {prevModule ? (
+            {prevModule && canAccessModule(hasEnrollment, isAdmin, prevModule.order_index) ? (
               <Link href={`/curso/${prevModule.id}`}>
                 <Button variant="outline" className="gap-2">
                   <ArrowLeft className="h-4 w-4" />
@@ -122,13 +173,20 @@ export default async function ModulePage({ params }: ModulePageProps) {
               <div />
             )}
 
-            {nextModule ? (
+            {nextModule && canAccessModule(hasEnrollment, isAdmin, nextModule.order_index) ? (
               <Link href={`/curso/${nextModule.id}`}>
                 <Button className="gap-2 btn-gradient text-primary-foreground">
                   Siguiente
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+            ) : nextModule ? (
+              <a href="https://estudiaargentina.com" target="_blank" rel="noopener noreferrer">
+                <Button className="gap-2 btn-gradient text-primary-foreground">
+                  <Lock className="h-4 w-4" />
+                  Comprar acceso
+                </Button>
+              </a>
             ) : (
               <Link href="/curso">
                 <Button className="gap-2 btn-gradient text-primary-foreground">
@@ -173,22 +231,35 @@ export default async function ModulePage({ params }: ModulePageProps) {
               <CardTitle className="text-lg">Otros modulos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 max-h-80 overflow-y-auto">
-              {allModules?.map((m, index) => (
-                <Link
-                  key={m.id}
-                  href={`/curso/${m.id}`}
-                  className={`flex items-center gap-3 p-2 rounded-lg text-sm transition-colors ${
-                    m.id === params.moduleId
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-xs shrink-0">
-                    {index + 1}
-                  </span>
-                  <span className="truncate">{m.title}</span>
-                </Link>
-              ))}
+              {allModules?.map((m, index) => {
+                const canAccess = canAccessModule(hasEnrollment, isAdmin, m.order_index)
+                return canAccess ? (
+                  <Link
+                    key={m.id}
+                    href={`/curso/${m.id}`}
+                    className={`flex items-center gap-3 p-2 rounded-lg text-sm transition-colors ${
+                      m.id === params.moduleId
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-xs shrink-0">
+                      {index + 1}
+                    </span>
+                    <span className="truncate">{m.title}</span>
+                  </Link>
+                ) : (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 p-2 rounded-lg text-sm text-muted-foreground/50"
+                  >
+                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-secondary text-xs shrink-0">
+                      <Lock className="h-3 w-3" />
+                    </span>
+                    <span className="truncate">{m.title}</span>
+                  </div>
+                )
+              })}
             </CardContent>
           </Card>
         </div>
