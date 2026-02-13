@@ -12,20 +12,30 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Pibo - Tu Camino a la Universidad",
+    default: "Pibo - Plataforma Educativa | Estudia en Argentina",
     template: "%s | Pibo",
   },
-  description: "Plataforma educativa para estudiantes latinoamericanos que se preparan para universidades argentinas.",
-  keywords: ["educacion", "universidad", "argentina", "latinoamerica", "cursos", "preparacion universitaria"],
+  description: "Accede a tu masterclass de Pibo. Clases en video paso a paso, guías PDF, comunidad de estudiantes y soporte personalizado para estudiar en universidades argentinas.",
+  keywords: ["pibo", "plataforma educativa", "estudiar en argentina", "masterclass", "universidad argentina", "visa estudiante", "trámites migratorios", "cursos online", "UBA extranjeros"],
   authors: [{ name: "Pibo" }],
   icons: {
     icon: "/favicon.png",
   },
+  robots: {
+    index: true,
+    follow: true,
+  },
   openGraph: {
-    title: "Pibo - Tu Camino a la Universidad",
-    description: "Plataforma educativa para estudiantes latinoamericanos",
+    title: "Pibo - Plataforma Educativa | Estudia en Argentina",
+    description: "Accede a tu masterclass de Pibo. Clases en video, guías PDF, comunidad y soporte personalizado.",
     type: "website",
     locale: "es_AR",
+    siteName: "Pibo",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pibo - Plataforma Educativa | Estudia en Argentina",
+    description: "Masterclass paso a paso para estudiar en universidades argentinas.",
   },
 }
 
