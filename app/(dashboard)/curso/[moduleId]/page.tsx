@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowLeft, ArrowRight, FileText, Download, CheckCircle2, Lock } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { canAccessModule } from "@/lib/access"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { VideoPlayer } from "@/components/video/video-player"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,11 +11,11 @@ import { ModuleActions } from "./module-actions"
 import type { Module, ModuleProgress, ModuleResource } from "@/types/database"
 
 export async function generateMetadata({ params }: { params: { moduleId: string } }) {
-  const supabase = await createClient()
-  const { data: moduleData } = await supabase
+  const { data: moduleData } = await supabaseAdmin
     .from("modules")
     .select("title")
     .eq("id", params.moduleId)
+    .eq("is_published", true)
     .single()
 
   const courseModule = moduleData as Pick<Module, "title"> | null
@@ -32,51 +33,76 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: moduleData, error } = await supabase
-    .from("modules")
-    .select("*")
-    .eq("id", params.moduleId)
-    .eq("is_published", true)
-    .single()
+  type ModuleOutlineRow = Pick<
+    Module,
+    "id" | "title" | "order_index"
+  > & { can_access: boolean; is_locked: boolean }
 
-  const courseModule = moduleData as Module | null
+  // Best-effort fetch of outline: use RPC if present, fallback to server-side admin query.
+  let allModules: ModuleOutlineRow[] | null = null
 
-  if (error || !courseModule) {
+  const { data: outlineData, error: outlineError } = await supabase.rpc(
+    "get_course_modules_outline"
+  )
+
+  if (!outlineError && outlineData) {
+    allModules = (outlineData as Array<
+      Pick<Module, "id" | "title" | "order_index"> & {
+        can_access: boolean
+        is_locked: boolean
+      }
+    >)
+  } else {
+    // Fallback: compute lock state from enrollment + admin role.
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("payment_status", "completed")
+      .single()
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user!.id)
+      .single()
+
+    const hasEnrollment = !!enrollment
+    const isAdmin = profile?.role === "admin"
+
+    const { data: rawModules } = await supabaseAdmin
+      .from("modules")
+      .select("id, title, order_index")
+      .eq("is_published", true)
+      .order("order_index", { ascending: true })
+
+    allModules = (rawModules || []).map((m) => {
+      const canAccess = canAccessModule(hasEnrollment, isAdmin, m.order_index)
+      return {
+        id: m.id,
+        title: m.title,
+        order_index: m.order_index,
+        can_access: canAccess,
+        is_locked: !canAccess,
+      }
+    })
+  }
+
+  if (!allModules || allModules.length === 0) {
     notFound()
   }
 
-  // Access check
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("user_id", user!.id)
-    .eq("payment_status", "completed")
-    .single()
+  const currentIndex = allModules.findIndex((m) => m.id === params.moduleId)
+  if (currentIndex === -1) {
+    notFound()
+  }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single()
+  const currentModule = allModules[currentIndex]
+  const prevModule = currentIndex > 0 ? allModules[currentIndex - 1] : null
+  const nextModule = currentIndex < allModules.length - 1 ? allModules[currentIndex + 1] : null
 
-  const hasEnrollment = !!enrollment
-  const isAdmin = profile?.role === "admin"
-
-  // Get all modules for navigation
-  const { data: allModulesData } = await supabase
-    .from("modules")
-    .select("id, title, order_index")
-    .eq("is_published", true)
-    .order("order_index", { ascending: true })
-
-  const allModules = allModulesData as Pick<Module, "id" | "title" | "order_index">[] | null
-
-  const currentIndex = allModules?.findIndex((m) => m.id === params.moduleId) ?? -1
-  const prevModule = currentIndex > 0 ? allModules?.[currentIndex - 1] : null
-  const nextModule = currentIndex < (allModules?.length ?? 0) - 1 ? allModules?.[currentIndex + 1] : null
-
-  // If user can't access this module, show paywall (no video/resources leaked)
-  if (!canAccessModule(hasEnrollment, isAdmin, courseModule.order_index)) {
+  // If user can't access this module, show paywall (no video/resources leaked).
+  if (currentModule.is_locked) {
     return (
       <div className="space-y-6">
         <Link href="/curso">
@@ -86,7 +112,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
           </Button>
         </Link>
 
-        <Card className="border-border/50 bg-card/50">
+          <Card className="border-border/50 bg-card/50">
           <CardContent className="py-16 text-center space-y-4">
             <Lock className="h-12 w-12 text-muted-foreground mx-auto" />
             <h2 className="text-2xl font-bold">Contenido bloqueado</h2>
@@ -108,6 +134,20 @@ export default async function ModulePage({ params }: ModulePageProps) {
     )
   }
 
+  // Access allowed: fetch full module data (video/resources).
+  const { data: moduleData, error } = await supabase
+    .from("modules")
+    .select("*")
+    .eq("id", params.moduleId)
+    .eq("is_published", true)
+    .single()
+
+  const courseModule = moduleData as Module | null
+
+  if (error || !courseModule) {
+    notFound()
+  }
+
   const { data: progressData } = await supabase.from("module_progress")
     .select("*")
     .eq("user_id", user!.id)
@@ -115,7 +155,47 @@ export default async function ModulePage({ params }: ModulePageProps) {
     .single()
   const progress = progressData as ModuleProgress | null
 
-  const resources = (courseModule.resources as ModuleResource[]) || []
+  const BUCKET = "lesson-resources"
+
+  const resources = ((courseModule.resources as ModuleResource[]) || []).filter(Boolean)
+
+  const resolveResourcePath = (resource: ModuleResource): string | null => {
+    if (resource.path) return resource.path
+    if (!resource.url) return null
+
+    try {
+      const url = new URL(resource.url)
+      const marker = `/${BUCKET}/`
+      const idx = url.pathname.indexOf(marker)
+      if (idx === -1) return null
+      return decodeURIComponent(url.pathname.slice(idx + marker.length))
+    } catch {
+      return null
+    }
+  }
+
+  const signedResources = await Promise.all(
+    resources.map(async (resource) => {
+      const path = resolveResourcePath(resource)
+      if (!path) return resource
+
+      const bucket = resource.bucket || BUCKET
+      const { data } = await supabaseAdmin.storage
+        .from(bucket)
+        .createSignedUrl(path, 60 * 60) // 1 hour
+
+      if (!data?.signedUrl) return resource
+
+      return {
+        ...resource,
+        bucket,
+        path,
+        url: data.signedUrl,
+      }
+    })
+  )
+
+  const resourcesWithUrls = signedResources.filter((r) => !!r.url)
 
   return (
     <div className="space-y-6">
@@ -162,7 +242,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
           {/* Navigation */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
-            {prevModule && canAccessModule(hasEnrollment, isAdmin, prevModule.order_index) ? (
+            {prevModule && prevModule.can_access ? (
               <Link href={`/curso/${prevModule.id}`}>
                 <Button variant="outline" className="gap-2">
                   <ArrowLeft className="h-4 w-4" />
@@ -173,7 +253,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
               <div />
             )}
 
-            {nextModule && canAccessModule(hasEnrollment, isAdmin, nextModule.order_index) ? (
+            {nextModule && nextModule.can_access ? (
               <Link href={`/curso/${nextModule.id}`}>
                 <Button className="gap-2 btn-gradient text-primary-foreground">
                   Siguiente
@@ -200,7 +280,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {resources.length > 0 && (
+          {resourcesWithUrls.length > 0 && (
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -209,7 +289,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {resources.map((resource, index) => (
+                {resourcesWithUrls.map((resource, index) => (
                   <a
                     key={index}
                     href={resource.url}
@@ -232,8 +312,7 @@ export default async function ModulePage({ params }: ModulePageProps) {
             </CardHeader>
             <CardContent className="space-y-1 max-h-80 overflow-y-auto">
               {allModules?.map((m, index) => {
-                const canAccess = canAccessModule(hasEnrollment, isAdmin, m.order_index)
-                return canAccess ? (
+                return m.can_access ? (
                   <Link
                     key={m.id}
                     href={`/curso/${m.id}`}

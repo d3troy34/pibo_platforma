@@ -62,9 +62,16 @@ export async function POST(request: NextRequest) {
 
     // Ensure bucket exists
     const { data: buckets } = await supabaseAdmin.storage.listBuckets()
-    if (!buckets?.find((b) => b.name === BUCKET)) {
+    const existingBucket = buckets?.find((b) => b.name === BUCKET)
+    if (!existingBucket) {
       await supabaseAdmin.storage.createBucket(BUCKET, {
-        public: true,
+        public: false,
+        fileSizeLimit: MAX_FILE_SIZE,
+      })
+    } else if ((existingBucket as { public?: boolean }).public === true) {
+      // Enforce private bucket so locked modules can't leak assets via public URLs.
+      await supabaseAdmin.storage.updateBucket(BUCKET, {
+        public: false,
         fileSizeLimit: MAX_FILE_SIZE,
       })
     }
@@ -89,10 +96,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const {
-      data: { publicUrl },
-    } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(filePath)
-
     // Determine type
     let type: "pdf" | "doc" | "other" = "other"
     if (file.type === "application/pdf") type = "pdf"
@@ -103,7 +106,8 @@ export async function POST(request: NextRequest) {
       success: true,
       resource: {
         name: file.name,
-        url: publicUrl,
+        bucket: BUCKET,
+        path: filePath,
         type,
       },
     })
@@ -139,20 +143,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const { url } = await request.json()
+    const { path, url } = await request.json()
 
-    if (!url) {
-      return NextResponse.json({ error: "URL is required" }, { status: 400 })
+    let filePath: string | null = path || null
+
+    if (!filePath && url) {
+      // Backwards compatibility: delete legacy resources that stored a public URL.
+      const urlObj = new URL(url)
+      const pathParts = urlObj.pathname.split(`/${BUCKET}/`)
+      if (pathParts.length < 2) {
+        return NextResponse.json({ error: "Invalid URL" }, { status: 400 })
+      }
+      filePath = decodeURIComponent(pathParts[1])
     }
 
-    // Extract path from public URL
-    const urlObj = new URL(url)
-    const pathParts = urlObj.pathname.split(`/${BUCKET}/`)
-    if (pathParts.length < 2) {
-      return NextResponse.json({ error: "Invalid URL" }, { status: 400 })
+    if (!filePath) {
+      return NextResponse.json({ error: "path or url is required" }, { status: 400 })
     }
-
-    const filePath = decodeURIComponent(pathParts[1])
 
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)

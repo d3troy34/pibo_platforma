@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button"
 import type { Module } from "@/types/database"
 
 interface ModuleCardProps {
-  module: Module
+  module: Pick<
+    Module,
+    "id" | "title" | "description" | "thumbnail_url" | "order_index"
+  > & { has_video?: boolean }
   isCompleted: boolean
   isLocked?: boolean
 }
@@ -85,7 +88,7 @@ export function ModuleCard({
               <Badge className="bg-green-500/20 text-green-400 border-green-500/30 shrink-0">
                 Gratis
               </Badge>
-            ) : module.bunny_video_guid ? (
+            ) : module.has_video ? (
               <Badge variant="secondary" className="shrink-0">
                 <PlayCircle className="h-3 w-3 mr-1" />
                 Video

@@ -19,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/client"
 
 const resetSchema = z.object({
   email: z.string().email("Email invalido"),
@@ -30,7 +29,6 @@ type ResetFormValues = z.infer<typeof resetSchema>
 export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const supabase = createClient()
 
   const {
     register,
@@ -44,12 +42,16 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/update-password`,
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email }),
       })
 
-      if (error) {
-        toast.error(error.message)
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        toast.error(result.error || "Error al enviar el email")
         return
       }
 

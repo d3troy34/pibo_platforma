@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createClient } from "@/lib/supabase/client"
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -64,8 +63,10 @@ interface RegisterFormProps {
 
 export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
+
+  const redirectTo = searchParams.get("redirect") || "/curso"
 
   const {
     register,
@@ -107,34 +108,32 @@ export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormP
         }
 
         toast.success("Cuenta creada! Ya puedes iniciar sesion.")
-        router.push("/login")
+        router.push(`/login?redirect=${encodeURIComponent(redirectTo)}`)
         return
       }
 
-      // Regular signup flow (for non-invited users)
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.fullName,
-            country: data.country,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/confirm`,
-        },
+      // Regular signup flow: create user + send confirmation email via Resend (server-side).
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: data.fullName,
+          email: data.email,
+          password: data.password,
+          country: data.country,
+          redirect: redirectTo,
+        }),
       })
 
-      if (signUpError) {
-        if (signUpError.message.includes("already registered")) {
-          toast.error("Este email ya esta registrado. Intenta iniciar sesion.")
-        } else {
-          toast.error(signUpError.message)
-        }
+      const result = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        toast.error(result.error || "Error al crear la cuenta")
         return
       }
 
       toast.success("Cuenta creada! Revisa tu email para confirmar tu cuenta.")
-      router.push("/login")
+      router.push(`/login?redirect=${encodeURIComponent(redirectTo)}`)
     } catch {
       toast.error("Ocurrio un error. Intenta de nuevo.")
     } finally {
@@ -252,7 +251,10 @@ export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormP
           {!invitationToken && (
             <p className="text-sm text-muted-foreground text-center">
               Ya tienes cuenta?{" "}
-              <Link href="/login" className="text-primary hover:underline">
+              <Link
+                href={`/login?redirect=${encodeURIComponent(redirectTo)}`}
+                className="text-primary hover:underline"
+              >
                 Iniciar sesion
               </Link>
             </p>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { ModuleCard } from "@/components/dashboard/module-card"
 import { canAccessModule } from "@/lib/access"
 import type { Module, ModuleProgress } from "@/types/database"
@@ -29,13 +30,47 @@ export default async function CoursePage() {
   const hasEnrollment = !!enrollment
   const isAdmin = profile?.role === "admin"
 
-  const { data: modulesData } = await supabase
-    .from("modules")
-    .select("*")
-    .eq("is_published", true)
-    .order("order_index", { ascending: true })
+  type ModuleOutlineRow = Pick<
+    Module,
+    "id" | "title" | "description" | "thumbnail_url" | "order_index" | "is_published"
+  > & {
+    can_access: boolean
+    is_locked: boolean
+    has_video: boolean
+  }
 
-  const modules = modulesData as Module[] | null
+  let modules: ModuleOutlineRow[] | null = null
+
+  const { data: outlineData, error: outlineError } = await supabase.rpc(
+    "get_course_modules_outline"
+  )
+
+  if (!outlineError && outlineData) {
+    modules = outlineData as ModuleOutlineRow[]
+  } else {
+    // Fallback for environments where the RPC wasn't applied yet.
+    // This uses the service role on the server and returns only safe fields.
+    const { data: rawModules } = await supabaseAdmin
+      .from("modules")
+      .select("id, title, description, thumbnail_url, order_index, is_published, bunny_video_guid")
+      .eq("is_published", true)
+      .order("order_index", { ascending: true })
+
+    modules = (rawModules || []).map((m) => {
+      const canAccess = canAccessModule(hasEnrollment, isAdmin, m.order_index)
+      return {
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        thumbnail_url: m.thumbnail_url,
+        order_index: m.order_index,
+        is_published: m.is_published,
+        can_access: canAccess,
+        is_locked: !canAccess,
+        has_video: !!m.bunny_video_guid,
+      }
+    })
+  }
 
   let completedModuleIds = new Set<string>()
   try {
@@ -66,7 +101,7 @@ export default async function CoursePage() {
               key={module.id}
               module={module}
               isCompleted={completedModuleIds.has(module.id)}
-              isLocked={!canAccessModule(hasEnrollment, isAdmin, module.order_index)}
+              isLocked={module.is_locked}
             />
           ))}
         </div>

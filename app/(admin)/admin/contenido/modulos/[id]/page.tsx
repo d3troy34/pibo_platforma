@@ -180,7 +180,7 @@ export default function EditModuloPage() {
       await fetch("/api/admin/upload", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: resource.url }),
+        body: JSON.stringify({ path: resource.path, url: resource.url }),
       })
 
       const newResources = resources.filter((_, i) => i !== index)

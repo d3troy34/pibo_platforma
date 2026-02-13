@@ -1,7 +1,85 @@
-/**
+﻿/**
  * Centralized email templates for the Mipibo platform.
  * All HTML email content is defined here to keep API routes clean.
+ *
+ * NOTE: Prefer ASCII in templates to avoid encoding issues across email clients.
  */
+
+export function confirmAccountEmail(fullName: string, confirmUrl: string): string {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
+      <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
+        Confirma tu cuenta
+      </h1>
+
+      <p style="margin-bottom: 16px; line-height: 1.6; color: #CBD5E1;">
+        Hola ${fullName},
+      </p>
+
+      <p style="margin-bottom: 32px; line-height: 1.6; color: #CBD5E1;">
+        Haz clic en el boton de abajo para confirmar tu cuenta y entrar a la plataforma.
+      </p>
+
+      <a href="${confirmUrl}"
+         style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
+        Confirmar cuenta
+      </a>
+
+      <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
+        Si no creaste esta cuenta, puedes ignorar este email.
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
+
+      <p style="font-size: 12px; color: #64748B;">
+        (c) ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
+      </p>
+    </div>
+  </body>
+</html>`
+}
+
+export function resetPasswordEmail(resetUrl: string): string {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
+      <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
+        Restablecer contrasena
+      </h1>
+
+      <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
+        Haz clic en el boton de abajo para elegir una nueva contrasena.
+      </p>
+
+      <a href="${resetUrl}"
+         style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
+        Cambiar contrasena
+      </a>
+
+      <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
+        Si no solicitaste este cambio, puedes ignorar este email.
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
+
+      <p style="font-size: 12px; color: #64748B;">
+        (c) ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
+      </p>
+    </div>
+  </body>
+</html>`
+}
 
 export function welcomeEmail(fullName: string, email: string, resetUrl: string): string {
   return `<!DOCTYPE html>
@@ -13,7 +91,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
   <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
       <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-        ¡Bienvenido a Mipibo, ${fullName}!
+        Bienvenido a Mipibo, ${fullName}!
       </h1>
 
       <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
@@ -22,7 +100,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
 
       <div style="background-color: #334155; border-radius: 8px; padding: 24px; margin-bottom: 32px;">
         <h2 style="color: #7DD3FC; margin-top: 0; margin-bottom: 16px; font-size: 18px;">
-          Configura tu contraseña:
+          Configura tu contrasena:
         </h2>
 
         <p style="margin: 8px 0; color: #F0F9FF;">
@@ -30,17 +108,17 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
         </p>
 
         <p style="margin: 12px 0; color: #CBD5E1; font-size: 14px;">
-          Haz clic en el botón de abajo para configurar tu contraseña y acceder al curso.
+          Haz clic en el boton de abajo para configurar tu contrasena y acceder al curso.
         </p>
       </div>
 
       <a href="${resetUrl}"
          style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-        Configurar Contraseña
+        Configurar Contrasena
       </a>
 
       <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
-        Este enlace expira en 24 horas. Si tienes problemas, puedes solicitar un nuevo enlace desde la página de inicio de sesión.
+        Este enlace expira en 24 horas. Si tienes problemas, puedes solicitar un nuevo enlace desde la pagina de inicio de sesion.
       </p>
 
       <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
@@ -50,7 +128,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
       </p>
 
       <p style="font-size: 12px; color: #64748B; margin-top: 16px;">
-        © ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
+        (c) ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
       </p>
     </div>
   </body>
@@ -73,20 +151,20 @@ export function invitationEmail(fullName: string | undefined, inviteUrl: string)
       ${fullName ? `<p style="margin-bottom: 16px;">Hola ${fullName},</p>` : ""}
 
       <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
-        Has sido invitado a unirte a Mipibo, tu plataforma de preparación para universidades argentinas.
+        Has sido invitado a unirte a Mipibo, tu plataforma de preparacion para universidades argentinas.
       </p>
 
       <p style="margin-bottom: 32px; line-height: 1.6; color: #CBD5E1;">
-        Haz clic en el botón de abajo para completar tu registro y acceder al curso:
+        Haz clic en el boton de abajo para completar tu registro y acceder al curso:
       </p>
 
       <a href="${inviteUrl}"
          style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-        Aceptar Invitación
+        Aceptar Invitacion
       </a>
 
       <p style="margin-top: 32px; font-size: 14px; color: #94A3B8;">
-        Este enlace expira en 7 días.
+        Este enlace expira en 7 dias.
       </p>
 
       <p style="margin-top: 16px; font-size: 14px; color: #94A3B8;">
@@ -96,7 +174,7 @@ export function invitationEmail(fullName: string | undefined, inviteUrl: string)
       <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
 
       <p style="font-size: 12px; color: #64748B;">
-        © ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
+        (c) ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
       </p>
     </div>
   </body>

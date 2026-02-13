@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null
   const next = searchParams.get("next") ?? "/curso"
 
-  const redirectTo = new URL(next, request.url)
+  // Prevent open redirects. Only allow relative paths within this app.
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/curso"
+
+  const redirectTo = new URL(safeNext, request.url)
 
   if (token_hash && type) {
     const supabase = await createClient()

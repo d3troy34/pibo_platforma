@@ -193,7 +193,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const resetUrl = resetData.properties.action_link
+    // Use our app confirm route (verifyOtp) instead of the Supabase /verify link,
+    // so we can set cookies/session on our domain consistently.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
+    const resetUrl = `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(
+      resetData.properties.hashed_token
+    )}&type=${encodeURIComponent(
+      resetData.properties.verification_type
+    )}&next=${encodeURIComponent("/update-password")}`
 
     // Send welcome email with password setup link (NOT plaintext password)
     const { error: emailError } = await resend.emails.send({

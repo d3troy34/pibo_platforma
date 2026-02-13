@@ -325,6 +325,20 @@ export type Database = {
         Args: Record<string, never>
         Returns: boolean
       }
+      get_course_modules_outline: {
+        Args: Record<string, never>
+        Returns: Array<{
+          id: string
+          title: string
+          description: string | null
+          thumbnail_url: string | null
+          order_index: number
+          is_published: boolean
+          can_access: boolean
+          is_locked: boolean
+          has_video: boolean
+        }>
+      }
     }
     Enums: {
       [_ in never]: never
@@ -347,7 +361,12 @@ export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]
 // Resource type for modules
 export type ModuleResource = {
   name: string
-  url: string
+  // Preferred: storage path inside Supabase Storage bucket (private + signed URLs).
+  path?: string
+  bucket?: string
+
+  // Legacy: public URL (deprecated). Keep for backwards compatibility with old rows.
+  url?: string
   type: "pdf" | "doc" | "video" | "link" | "other"
 }
 

@@ -156,7 +156,10 @@ export function LoginForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             No tienes una cuenta?{" "}
-            <Link href="/register" className="text-primary hover:underline">
+            <Link
+              href={`/register?redirect=${encodeURIComponent(redirectTo)}`}
+              className="text-primary hover:underline"
+            >
               Crear cuenta gratis
             </Link>
           </p>
