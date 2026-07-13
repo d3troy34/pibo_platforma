@@ -217,7 +217,6 @@ export default async function ModulePage({ params }: ModulePageProps) {
           <ModuleActions
             moduleId={params.moduleId}
             isCompleted={progress?.completed || false}
-            initialProgress={progress?.progress_seconds || 0}
           />
         </div>
       ) : (

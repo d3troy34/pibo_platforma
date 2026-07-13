@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pibo LMS
 
-## Getting Started
+Plataforma privada de aprendizaje de Pibo. Incluye autenticacion, acceso gratuito y pago a modulos, seguimiento de progreso, mensajeria, anuncios y administracion de contenido.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20, 22 o 24 o superior, junto con npm. Las versiones 21 y 23 no son compatibles con las herramientas de prueba.
+- Un proyecto Supabase compatible con las tablas y politicas esperadas por la aplicacion.
+- Bunny Stream para reproducir videos.
+- Resend para los correos de registro, recuperacion e invitacion.
+
+## Preparacion local
+
+Instala exactamente las versiones del lockfile:
+
+```bash
+npm ci
+```
+
+Configura las variables necesarias en `.env.local` y levanta el servidor:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La aplicacion queda disponible en `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verificacion
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Ejecuta todas las puertas locales antes de entregar un cambio:
 
-## Learn More
+```bash
+npm run check
+```
 
-To learn more about Next.js, take a look at the following resources:
+Este comando comprueba tipos, ejecuta las pruebas y corre el linter. Para generar la version publicable, con las variables configuradas:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Variables de entorno
 
-## Deploy on Vercel
+No guardes valores privados en Git. Consulta `.env.example` y configura únicamente los valores del entorno correspondiente.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Variables visibles por el navegador:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID`
+- `NEXT_PUBLIC_APP_URL`
+
+Variables exclusivas del servidor:
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY`
+- `WEBHOOK_SECRET`
+
+`.env.example` también conserva variables de proveedores de pago y de Bunny que el código actual no consume directamente. Confirma el flujo de compra antes de depender de ellas o eliminarlas.
+
+## Servicios externos
+
+- **Supabase**: autenticacion, base de datos, reglas de acceso, archivos y tiempo real.
+- **Bunny Stream**: videos de los modulos.
+- **Resend**: correos transaccionales.
+
+El estado del backend remoto todavía no fue identificado. No asumas que está activo ni que coincide con los archivos SQL del repositorio.
+
+## Base de datos
+
+No ejecutes `supabase/schema.sql` a ciegas sobre un proyecto remoto. El archivo es una referencia historica y puede diferir del estado desplegado.
+
+Antes de aplicar cualquier archivo de `supabase/migrations/`:
+
+1. Confirma el proyecto remoto correcto y crea un respaldo.
+2. Compara su esquema, funciones y reglas de acceso con el repositorio.
+3. Prueba las migraciones sobre una base desechable.
+4. Aplica en remoto sólo los cambios revisados y en el orden acordado.
