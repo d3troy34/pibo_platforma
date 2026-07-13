@@ -7,8 +7,3 @@
 export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
   return true
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function getRateLimitInfo(key: string): { remaining: number; resetAt: Date } {
-  return { remaining: Infinity, resetAt: new Date() }
-}

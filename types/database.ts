@@ -374,12 +374,3 @@ export type ModuleResource = {
 export interface DirectMessageWithSender extends DirectMessage {
   sender: Pick<Profile, "id" | "full_name" | "avatar_url" | "role">
 }
-
-export interface DirectMessageWithStudent extends DirectMessage {
-  student: Pick<Profile, "id" | "full_name" | "avatar_url">
-}
-
-// Announcement types
-export interface AnnouncementWithAuthor extends Announcement {
-  author: Pick<Profile, "id" | "full_name" | "avatar_url">
-}

@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { getSafeInternalPath } from "@/lib/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 const loginSchema = z.object({
@@ -35,7 +36,10 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const supabase = createClient()
 
-  const redirectTo = searchParams.get("redirect") || "/curso"
+  const redirectTo = getSafeInternalPath(
+    searchParams.get("redirect"),
+    "/curso"
+  )
 
   const {
     register,

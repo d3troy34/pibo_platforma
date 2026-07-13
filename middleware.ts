@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+import { classifyRouteAccess } from "@/lib/navigation"
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -37,16 +39,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-
-  // Routes that require authentication
-  const protectedRoutes = ["/curso", "/progreso", "/perfil", "/mensajes", "/anuncios", "/catalogo"]
-  const adminRoutes = ["/admin"]
-  const authRoutes = ["/login", "/register", "/reset-password", "/update-password"]
-
-  // Check if accessing protected route without auth
-  const isProtectedRoute = protectedRoutes.some((route) => path.startsWith(route))
-  const isAdminRoute = adminRoutes.some((route) => path.startsWith(route))
-  const isAuthRoute = authRoutes.some((route) => path.startsWith(route))
+  const { isProtectedRoute, isAdminRoute, isAuthRoute } = classifyRouteAccess(path)
 
   if ((isProtectedRoute || isAdminRoute) && !user) {
     const redirectUrl = new URL("/login", request.url)

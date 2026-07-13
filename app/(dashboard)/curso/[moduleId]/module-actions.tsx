@@ -10,7 +10,6 @@ import { createClient } from "@/lib/supabase/client"
 interface ModuleActionsProps {
   moduleId: string
   isCompleted: boolean
-  initialProgress: number
 }
 
 export function ModuleActions({

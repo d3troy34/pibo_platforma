@@ -12,12 +12,14 @@ interface ModuleCardProps {
   > & { has_video?: boolean }
   isCompleted: boolean
   isLocked?: boolean
+  imageLoading?: "eager" | "lazy"
 }
 
 export function ModuleCard({
   module,
   isCompleted,
   isLocked = false,
+  imageLoading = "lazy",
 }: ModuleCardProps) {
   if (isLocked) {
     return (
@@ -27,6 +29,8 @@ export function ModuleCard({
             <img
               src={module.thumbnail_url}
               alt={module.title}
+              loading={imageLoading}
+              decoding="async"
               className="w-full h-full object-cover opacity-50"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
@@ -68,6 +72,8 @@ export function ModuleCard({
             <img
               src={module.thumbnail_url}
               alt={module.title}
+              loading={imageLoading}
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
