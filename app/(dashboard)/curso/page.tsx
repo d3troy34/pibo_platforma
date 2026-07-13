@@ -13,23 +13,6 @@ export default async function CoursePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Check enrollment and role
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("user_id", user!.id)
-    .eq("payment_status", "completed")
-    .single()
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single()
-
-  const hasEnrollment = !!enrollment
-  const isAdmin = profile?.role === "admin"
-
   type ModuleOutlineRow = Pick<
     Module,
     "id" | "title" | "description" | "thumbnail_url" | "order_index" | "is_published"
@@ -39,11 +22,45 @@ export default async function CoursePage() {
     has_video: boolean
   }
 
-  let modules: ModuleOutlineRow[] | null = null
+  const completedModuleIdsPromise = (async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: progressData } = await (supabase.from("module_progress") as any)
+        .select("module_id, completed")
+        .eq("user_id", user!.id)
+        .eq("completed", true)
+      const progress = progressData as Pick<ModuleProgress, "module_id" | "completed">[] | null
+      return new Set(progress?.map((item) => item.module_id) || [])
+    } catch {
+      // table may not exist yet
+      return new Set<string>()
+    }
+  })()
 
-  const { data: outlineData, error: outlineError } = await supabase.rpc(
-    "get_course_modules_outline"
-  )
+  const [
+    { data: enrollment },
+    { data: profile },
+    { data: outlineData, error: outlineError },
+    completedModuleIds,
+  ] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("payment_status", "completed")
+      .single(),
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user!.id)
+      .single(),
+    supabase.rpc("get_course_modules_outline"),
+    completedModuleIdsPromise,
+  ])
+
+  const hasEnrollment = !!enrollment
+  const isAdmin = profile?.role === "admin"
+  let modules: ModuleOutlineRow[] | null = null
 
   if (!outlineError && outlineData) {
     modules = outlineData as ModuleOutlineRow[]
@@ -72,19 +89,6 @@ export default async function CoursePage() {
     })
   }
 
-  let completedModuleIds = new Set<string>()
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: progressData } = await (supabase.from("module_progress") as any)
-      .select("module_id, completed")
-      .eq("user_id", user!.id)
-      .eq("completed", true)
-    const progress = progressData as Pick<ModuleProgress, "module_id" | "completed">[] | null
-    completedModuleIds = new Set(progress?.map((p) => p.module_id) || [])
-  } catch {
-    // table may not exist yet
-  }
-
   return (
     <div className="space-y-8">
       <div>
@@ -96,12 +100,13 @@ export default async function CoursePage() {
 
       {modules && modules.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {modules.map((module) => (
+          {modules.map((module, index) => (
             <ModuleCard
               key={module.id}
               module={module}
               isCompleted={completedModuleIds.has(module.id)}
               isLocked={module.is_locked}
+              imageLoading={index === 0 ? "eager" : "lazy"}
             />
           ))}
         </div>

@@ -11,41 +11,40 @@ export const metadata = {
 export default async function AdminDashboardPage() {
   const supabase = await createClient()
 
-  // Get total students
-  const { count: studentCount } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "student")
-
-  // Get total enrollments
-  const { count: enrollmentCount } = await supabase
-    .from("enrollments")
-    .select("*", { count: "exact", head: true })
-    .eq("payment_status", "completed")
-
-  // Get total modules
-  const { count: moduleCount } = await supabase
-    .from("modules")
-    .select("*", { count: "exact", head: true })
-    .eq("is_published", true)
-
-  // Get recent enrollments
-  const { data: recentEnrollmentsData } = await supabase
-    .from("enrollments")
-    .select("*, profiles(full_name, email)")
-    .eq("payment_status", "completed")
-    .order("enrolled_at", { ascending: false })
-    .limit(5)
+  const [
+    { count: studentCount },
+    { count: enrollmentCount },
+    { count: moduleCount },
+    { data: recentEnrollmentsData },
+    { count: pendingInvitations },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "student"),
+    supabase
+      .from("enrollments")
+      .select("*", { count: "exact", head: true })
+      .eq("payment_status", "completed"),
+    supabase
+      .from("modules")
+      .select("*", { count: "exact", head: true })
+      .eq("is_published", true),
+    supabase
+      .from("enrollments")
+      .select("*, profiles(full_name, email)")
+      .eq("payment_status", "completed")
+      .order("enrolled_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("invitations")
+      .select("*", { count: "exact", head: true })
+      .is("accepted_at", null)
+      .gt("expires_at", new Date().toISOString()),
+  ])
 
   type EnrollmentWithProfile = Enrollment & { profiles: Pick<Profile, "full_name" | "email"> | null }
   const recentEnrollments = recentEnrollmentsData as EnrollmentWithProfile[] | null
-
-  // Get pending invitations count
-  const { count: pendingInvitations } = await supabase
-    .from("invitations")
-    .select("*", { count: "exact", head: true })
-    .is("accepted_at", null)
-    .gt("expires_at", new Date().toISOString())
 
   const stats = [
     {

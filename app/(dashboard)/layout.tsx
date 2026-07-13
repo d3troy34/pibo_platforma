@@ -16,55 +16,60 @@ export default async function DashboardLayout({
     redirect("/login")
   }
 
-  // Get profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single()
+  const [
+    { data: profile },
+    { data: enrollment },
+    { data: latestAnnouncement },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("enrollments")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("payment_status", "completed")
+      .single(),
+    supabase
+      .from("announcements")
+      .select("*")
+      .eq("is_active", true)
+      .not("published_at", "is", null)
+      .lte("published_at", new Date().toISOString())
+      .order("published_at", { ascending: false })
+      .limit(1)
+      .single(),
+  ])
 
   const isAdmin = profile?.role === "admin"
-
-  // Check enrollment (admins bypass this check)
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("payment_status", "completed")
-    .single()
-
   const hasEnrollment = !!enrollment
 
   // Calculate total progress (only for enrolled users or admins)
   let totalProgress = 0
   if (hasEnrollment || isAdmin) {
-    const { data: modules } = await supabase
-      .from("modules")
-      .select("id")
-      .eq("is_published", true)
+    const [{ data: modules }, { data: progress }] = await Promise.all([
+      supabase
+        .from("modules")
+        .select("id")
+        .eq("is_published", true),
+      supabase
+        .from("module_progress")
+        .select("module_id")
+        .eq("user_id", user.id)
+        .eq("completed", true),
+    ])
 
-    const { data: progress } = await supabase.from("module_progress")
-      .select("module_id")
-      .eq("user_id", user.id)
-      .eq("completed", true)
-
-    const totalModules = modules?.length || 0
-    const completedModules = progress?.length || 0
+    const publishedModuleIds = new Set(modules?.map((module) => module.id) || [])
+    const totalModules = publishedModuleIds.size
+    const completedModules = progress?.filter((item) =>
+      publishedModuleIds.has(item.module_id)
+    ).length || 0
     totalProgress = totalModules > 0
       ? Math.round((completedModules / totalModules) * 100)
       : 0
   }
-
-  // Get latest announcement
-  const { data: latestAnnouncement } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("is_active", true)
-    .not("published_at", "is", null)
-    .lte("published_at", new Date().toISOString())
-    .order("published_at", { ascending: false })
-    .limit(1)
-    .single()
 
   return (
     <div className="flex min-h-screen gradient-bg">

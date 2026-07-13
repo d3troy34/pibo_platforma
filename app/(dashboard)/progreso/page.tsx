@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock, BookOpen, Trophy } from "lucide-react"
+import { getModuleProgressPercent } from "@/lib/progress"
 import type { Module, ModuleProgress } from "@/types/database"
 
 export const metadata = {
@@ -20,58 +21,68 @@ export default async function ProgressPage() {
     redirect("/login")
   }
 
-  // Paid-only section (admins bypass).
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  const isAdmin = profile?.role === "admin"
-
-  if (!isAdmin) {
-    const { data: enrollment } = await supabase
+  const [
+    { data: profile },
+    { data: enrollment },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single(),
+    supabase
       .from("enrollments")
       .select("id")
       .eq("user_id", user.id)
       .eq("payment_status", "completed")
-      .single()
+      .single(),
+  ])
 
-    if (!enrollment) {
-      return (
-        <PaidAccessRequired
-          title="Progreso bloqueado"
-          description="El seguimiento de progreso es parte del acceso completo al curso. Compra tu acceso para desbloquear todos los modulos y secciones."
-        />
-      )
-    }
+  const isAdmin = profile?.role === "admin"
+
+  if (!isAdmin && !enrollment) {
+    return (
+      <PaidAccessRequired
+        title="Progreso bloqueado"
+        description="El seguimiento de progreso es parte del acceso completo al curso. Compra tu acceso para desbloquear todos los modulos y secciones."
+      />
+    )
   }
 
-  // Get all published modules
-  const { data: modulesData } = await supabase
-    .from("modules")
-    .select("*")
-    .eq("is_published", true)
-    .order("order_index", { ascending: true })
+  const [{ data: modulesData }, { data: progressData }] = await Promise.all([
+    supabase
+      .from("modules")
+      .select("*")
+      .eq("is_published", true)
+      .order("order_index", { ascending: true }),
+    supabase
+      .from("module_progress")
+      .select("*")
+      .eq("user_id", user.id),
+  ])
 
   const modules = modulesData as Module[] | null
-
-  // Get all module progress
-  const { data: progressData } = await supabase.from("module_progress")
-    .select("*")
-    .eq("user_id", user.id)
   const progress = progressData as ModuleProgress[] | null
 
-  const progressMap = new Map(progress?.map((p) => [p.module_id, p]) || [])
+  const publishedModuleIds = new Set(modules?.map((module) => module.id) || [])
+  const publishedProgress = progress?.filter((item) =>
+    publishedModuleIds.has(item.module_id)
+  ) || []
+  const progressMap = new Map(publishedProgress.map((item) => [item.module_id, item]))
 
   // Calculate stats
-  const totalModules = modules?.length || 0
-  const completedModules = progress?.filter((p) => p.completed).length || 0
-  const inProgressModules = progress?.filter((p) => !p.completed && p.progress_seconds > 0).length || 0
+  const totalModules = publishedModuleIds.size
+  const completedModules = publishedProgress.filter((item) => item.completed).length
+  const inProgressModules = publishedProgress.filter(
+    (item) => !item.completed && item.progress_seconds > 0
+  ).length
   const totalProgress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
 
   // Calculate total time watched
-  const totalSecondsWatched = progress?.reduce((acc, p) => acc + (p.progress_seconds || 0), 0) || 0
+  const totalSecondsWatched = publishedProgress.reduce(
+    (acc, item) => acc + (item.progress_seconds || 0),
+    0
+  )
   const hoursWatched = Math.floor(totalSecondsWatched / 3600)
   const minutesWatched = Math.floor((totalSecondsWatched % 3600) / 60)
 
@@ -182,6 +193,11 @@ export default async function ProgressPage() {
           {modules?.map((module) => {
             const mp = progressMap.get(module.id)
             const isModuleCompleted = mp?.completed || false
+            const moduleProgressPercent = getModuleProgressPercent(
+              mp?.progress_seconds,
+              module.duration_seconds,
+              isModuleCompleted
+            )
             return (
               <Card key={module.id} className="border-border/50 bg-card/30">
                 <CardContent className="p-4">
@@ -204,7 +220,7 @@ export default async function ProgressPage() {
                       )}
                     </div>
                   </div>
-                  <Progress value={isModuleCompleted ? 100 : 0} className="h-2" />
+                  <Progress value={moduleProgressPercent} className="h-2" />
                 </CardContent>
               </Card>
             )
