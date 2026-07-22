@@ -5,6 +5,76 @@
  * NOTE: Prefer ASCII in templates to avoid encoding issues across email clients.
  */
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  })[character] || character)
+}
+
+function purchaseEmailShell(preview: string, content: string): string {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(preview)}</title>
+  </head>
+  <body style="margin: 0; padding: 32px 16px; background: #F4F0E8; color: #171717; font-family: Arial, Helvetica, sans-serif;">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">${escapeHtml(preview)}</div>
+    <div style="max-width: 600px; margin: 0 auto; overflow: hidden; border: 1px solid #D8D0C2; border-radius: 24px; background: #FFFCF7;">
+      <div style="padding: 24px 32px; border-bottom: 1px solid #E8E0D4;">
+        <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.04em;">PIBO</span>
+        <span style="float: right; color: #6657D9; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">Tu camino a Argentina</span>
+      </div>
+      <div style="padding: 40px 32px 36px;">${content}</div>
+      <div style="padding: 20px 32px; border-top: 1px solid #E8E0D4; color: #756E65; font-size: 12px; line-height: 1.6;">
+        Pibo · Acompañamiento para estudiar en Argentina<br>
+        Si no reconoces esta compra, responde este correo para que podamos ayudarte.
+      </div>
+    </div>
+  </body>
+</html>`
+}
+
+export function purchaseInvitationEmail(
+  fullName: string | undefined,
+  inviteUrl: string,
+): string {
+  const greeting = fullName ? `Hola ${escapeHtml(fullName)},` : "Hola,"
+  const safeInviteUrl = escapeHtml(inviteUrl)
+
+  return purchaseEmailShell(
+    "Tu compra fue aprobada. Crea tu acceso a Pibo.",
+    `<p style="margin: 0 0 12px; color: #6657D9; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Pago aprobado</p>
+      <h1 style="margin: 0 0 20px; font-size: 36px; line-height: 1.1; letter-spacing: -0.04em;">Tu curso ya es tuyo.</h1>
+      <p style="margin: 0 0 16px; color: #514B44; font-size: 17px; line-height: 1.7;">${greeting}</p>
+      <p style="margin: 0 0 28px; color: #514B44; font-size: 17px; line-height: 1.7;">Confirmamos tu compra. Falta un solo paso: crea tu contraseña y completa tus datos para entrar al campus.</p>
+      <a href="${safeInviteUrl}" style="display: inline-block; padding: 15px 24px; border-radius: 999px; background: #6657D9; color: #FFFFFF; font-size: 16px; font-weight: 700; text-decoration: none;">Crear mi acceso</a>
+      <p style="margin: 24px 0 0; color: #756E65; font-size: 13px; line-height: 1.6;">El enlace vence en 7 dias. Si vence, puedes pedirnos uno nuevo sin perder tu compra.</p>`,
+  )
+}
+
+export function courseReadyEmail(
+  fullName: string | undefined,
+  courseUrl: string,
+): string {
+  const greeting = fullName ? `Hola ${escapeHtml(fullName)},` : "Hola,"
+  const safeCourseUrl = escapeHtml(courseUrl)
+
+  return purchaseEmailShell(
+    "Confirmamos tu compra. Ya puedes entrar a tu curso.",
+    `<p style="margin: 0 0 12px; color: #2E806D; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;">Acceso habilitado</p>
+      <h1 style="margin: 0 0 20px; font-size: 36px; line-height: 1.1; letter-spacing: -0.04em;">Todo listo para continuar.</h1>
+      <p style="margin: 0 0 16px; color: #514B44; font-size: 17px; line-height: 1.7;">${greeting}</p>
+      <p style="margin: 0 0 28px; color: #514B44; font-size: 17px; line-height: 1.7;">La compra quedo asociada a tu cuenta y el curso ya esta habilitado. Entra con el mismo email que usaste al pagar.</p>
+      <a href="${safeCourseUrl}" style="display: inline-block; padding: 15px 24px; border-radius: 999px; background: #171717; color: #FFFFFF; font-size: 16px; font-weight: 700; text-decoration: none;">Entrar a mi curso</a>`,
+  )
+}
+
 export function confirmAccountEmail(fullName: string, confirmUrl: string): string {
   return `<!DOCTYPE html>
 <html>

@@ -336,6 +336,7 @@ export type Database = {
           invited_by: string | null
           accepted_by: string | null
           accepted_at: string | null
+          purchase_event_id: string | null
           expires_at: string
           created_at: string
         }
@@ -347,6 +348,7 @@ export type Database = {
           invited_by?: string | null
           accepted_by?: string | null
           accepted_at?: string | null
+          purchase_event_id?: string | null
           expires_at: string
           created_at?: string
         }
@@ -358,6 +360,7 @@ export type Database = {
           invited_by?: string | null
           accepted_by?: string | null
           accepted_at?: string | null
+          purchase_event_id?: string | null
           expires_at?: string
           created_at?: string
         }
@@ -406,15 +409,42 @@ export type Database = {
         }
         Returns: boolean
       }
-      fulfill_purchase: {
+      provision_purchase: {
         Args: {
-          purchase_user_id: string
+          purchase_email: string
+          purchase_full_name: string
           purchase_provider: "stripe" | "dlocal" | "manual"
           purchase_event_id: string
           purchase_payment_id: string
+          purchase_amount: number
           purchase_amount_usd: number
           purchase_currency: string
+          purchase_invitation_token_hash: string
+          purchase_invitation_expires_at: string
           purchase_payload?: Json
+        }
+        Returns: Json
+      }
+      claim_purchase_email: {
+        Args: {
+          purchase_provider: "stripe" | "dlocal" | "manual"
+          purchase_event_id: string
+        }
+        Returns: Json
+      }
+      complete_purchase_email: {
+        Args: {
+          purchase_provider: "stripe" | "dlocal" | "manual"
+          purchase_event_id: string
+          purchase_email_provider_id: string
+        }
+        Returns: boolean
+      }
+      fail_purchase_email: {
+        Args: {
+          purchase_provider: "stripe" | "dlocal" | "manual"
+          purchase_event_id: string
+          purchase_error_code: string
         }
         Returns: boolean
       }

@@ -1,227 +1,244 @@
-import { createHmac, timingSafeEqual } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 
-import { welcomeEmail } from "@/lib/email-templates"
+import { courseReadyEmail, purchaseInvitationEmail } from "@/lib/email-templates"
+import {
+  getPurchaseEmailIdempotencyKey,
+  getPurchaseInvitationToken,
+  hashInvitationToken,
+  parsePurchasePayload,
+  verifyPurchaseWebhookSignature,
+} from "@/lib/purchase-webhook"
 import { getResend } from "@/lib/resend/client"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import type { Json } from "@/types/database"
 
-const COURSE_PRICE_USD = 180
+export const runtime = "nodejs"
 
-type PaymentProvider = "stripe" | "dlocal" | "manual"
+const MAX_WEBHOOK_BYTES = 64 * 1024
+const INVITATION_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000
 
-interface PurchaseWebhookPayload {
+type AccessStatus = "pending_account" | "active" | "revoked"
+type EmailKind = "invitation" | "course_ready"
+type EmailStatus = "pending" | "sending" | "sent" | "failed"
+
+interface EmailClaim {
+  claimed: boolean
   email: string
-  full_name: string
-  purchase_id: string
-  amount?: number
-  currency?: string
-  payment_provider?: string
+  full_name: string | null
+  email_kind: EmailKind
+  email_status: EmailStatus
+  access_status: AccessStatus
 }
 
-function normalizeEmail(value: unknown): string | null {
-  if (typeof value !== "string") return null
-  const email = value.trim().toLowerCase()
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
-  return email
+function parseEmailClaim(value: unknown): EmailClaim | null {
+  if (!value || typeof value !== "object") return null
+  const claim = value as Record<string, unknown>
+
+  if (
+    typeof claim.claimed !== "boolean"
+    || typeof claim.email !== "string"
+    || (claim.full_name !== null && typeof claim.full_name !== "string")
+    || (claim.email_kind !== "invitation" && claim.email_kind !== "course_ready")
+    || !["pending", "sending", "sent", "failed"].includes(String(claim.email_status))
+    || !["pending_account", "active", "revoked"].includes(String(claim.access_status))
+  ) {
+    return null
+  }
+
+  return claim as unknown as EmailClaim
 }
 
-function parsePaymentProvider(value: unknown): PaymentProvider | null {
-  if (value === undefined || value === null || value === "") return "manual"
-  return value === "stripe" || value === "dlocal" || value === "manual" ? value : null
+function getAppOrigin(request: NextRequest): string | null {
+  const value = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin
+
+  try {
+    const url = new URL(value)
+    const isLocalHttp = url.protocol === "http:"
+      && (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+
+    if (
+      (url.protocol !== "https:" && !isLocalHttp)
+      || url.username
+      || url.password
+      || url.pathname !== "/"
+      || url.search
+      || url.hash
+    ) {
+      return null
+    }
+
+    return url.origin
+  } catch {
+    return null
+  }
 }
 
-function verifyWebhookSignature(payload: string, signature: string | null): boolean {
-  const secret = process.env.WEBHOOK_SECRET
-  if (!secret || !signature) return false
-
-  const expected = createHmac("sha256", secret).update(payload).digest("hex")
-  const received = signature.startsWith("sha256=") ? signature.slice(7) : signature
-  const expectedBuffer = Buffer.from(expected, "utf8")
-  const receivedBuffer = Buffer.from(received, "utf8")
-
-  return (
-    expectedBuffer.length === receivedBuffer.length &&
-    timingSafeEqual(expectedBuffer, receivedBuffer)
+function retryableDeliveryResponse(accessStatus: AccessStatus = "pending_account") {
+  return NextResponse.json(
+    {
+      success: false,
+      purchase_recorded: true,
+      access_status: accessStatus,
+      email_status: "pending",
+    },
+    { status: 503 },
   )
 }
 
 export async function POST(request: NextRequest) {
-  const rawBody = await request.text()
+  const declaredLength = Number(request.headers.get("content-length"))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_WEBHOOK_BYTES) {
+    return NextResponse.json({ error: "Invalid purchase payload" }, { status: 413 })
+  }
 
-  if (!verifyWebhookSignature(rawBody, request.headers.get("x-webhook-signature"))) {
+  const rawBody = await request.text()
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_WEBHOOK_BYTES) {
+    return NextResponse.json({ error: "Invalid purchase payload" }, { status: 413 })
+  }
+
+  const webhookSecret = process.env.WEBHOOK_SECRET
+  if (!verifyPurchaseWebhookSignature(
+    rawBody,
+    request.headers.get("x-webhook-signature"),
+    webhookSecret,
+  )) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
   }
 
-  let body: PurchaseWebhookPayload
+  let body: unknown
   try {
-    body = JSON.parse(rawBody) as PurchaseWebhookPayload
+    body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
   }
 
-  const email = normalizeEmail(body.email)
-  const fullName = typeof body.full_name === "string" ? body.full_name.trim().slice(0, 120) : ""
-  const purchaseId = typeof body.purchase_id === "string" ? body.purchase_id.trim().slice(0, 200) : ""
-  const provider = parsePaymentProvider(body.payment_provider)
-  const amount = body.amount === undefined ? COURSE_PRICE_USD : body.amount
-  const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "USD"
-
-  if (
-    !email ||
-    !fullName ||
-    !purchaseId ||
-    !provider ||
-    !Number.isFinite(amount) ||
-    amount <= 0 ||
-    !/^[A-Z]{3}$/.test(currency)
-  ) {
+  const purchase = parsePurchasePayload(body)
+  const appOrigin = getAppOrigin(request)
+  if (!purchase || !appOrigin || !webhookSecret) {
     return NextResponse.json({ error: "Invalid purchase payload" }, { status: 400 })
   }
 
+  const invitationToken = getPurchaseInvitationToken(purchase.email, webhookSecret)
+  const invitationExpiresAt = new Date(Date.now() + INVITATION_LIFETIME_MS).toISOString()
   const supabaseAdmin = getSupabaseAdmin()
-  let userId: string | null = null
-  let createdUser = false
 
-  try {
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle()
+  const { error: provisionError } = await supabaseAdmin.rpc("provision_purchase", {
+    purchase_email: purchase.email,
+    purchase_full_name: purchase.fullName,
+    purchase_provider: purchase.provider,
+    purchase_event_id: purchase.eventId,
+    purchase_payment_id: purchase.paymentId,
+    purchase_amount: purchase.amount,
+    purchase_amount_usd: purchase.amountUsd,
+    purchase_currency: purchase.currency,
+    purchase_invitation_token_hash: hashInvitationToken(invitationToken),
+    purchase_invitation_expires_at: invitationExpiresAt,
+    purchase_payload: body as Json,
+  })
 
-    if (profileError) throw profileError
-    userId = profile?.id || null
-
-    if (!userId) {
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: { full_name: fullName },
-      })
-
-      if (authError) {
-        const isExistingAuthUser = (authError as { code?: string }).code === "email_exists"
-        if (!isExistingAuthUser) throw authError
-
-        // In the new schema every auth user must have a profile. If it does not,
-        // scanning the auth directory would hide broken data and only works for page one.
-        const { data: recoveredProfile, error: recoveryError } = await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle()
-
-        if (recoveryError || !recoveredProfile) {
-          throw new Error("Existing auth user is missing its profile")
-        }
-
-        userId = recoveredProfile.id
-      } else if (authData.user) {
-        userId = authData.user.id
-        createdUser = true
-      }
-    }
-
-    if (!userId) throw new Error("Purchase user could not be resolved")
-
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ full_name: fullName })
-      .eq("id", userId)
-
-    if (profileUpdateError) throw profileUpdateError
-
-    const { data: processed, error: fulfillmentError } = await supabaseAdmin.rpc(
-      "fulfill_purchase",
-      {
-        purchase_user_id: userId,
-        purchase_provider: provider,
-        purchase_event_id: purchaseId,
-        purchase_payment_id: purchaseId,
-        purchase_amount_usd: amount,
-        purchase_currency: currency,
-        purchase_payload: {
-          purchase_id: purchaseId,
-          payment_provider: provider,
-          amount,
-          currency,
-        },
-      }
-    )
-
-    if (fulfillmentError) throw fulfillmentError
-
-    if (!processed) {
-      if (createdUser) {
-        await supabaseAdmin.auth.admin.deleteUser(userId)
-      }
-      return NextResponse.json({
-        success: true,
-        duplicate: true,
-        message: "Purchase already processed",
-      })
-    }
-
-    if (!createdUser) {
-      return NextResponse.json({
-        success: true,
-        user_existed: true,
-        message: "Access verified",
-      })
-    }
-
-    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email,
+  if (provisionError) {
+    console.error("Purchase provisioning failed", {
+      provider: purchase.provider,
+      eventId: purchase.eventId,
+      code: provisionError.code,
     })
+    return NextResponse.json({ error: "Purchase provisioning failed" }, { status: 500 })
+  }
 
-    if (resetError) {
-      console.error("Purchase completed but password link generation failed", { purchaseId })
-      return NextResponse.json({
-        success: true,
-        email_sent: false,
-        purchase_id: purchaseId,
-      })
-    }
+  const { data: claimData, error: claimError } = await supabaseAdmin.rpc(
+    "claim_purchase_email",
+    {
+      purchase_provider: purchase.provider,
+      purchase_event_id: purchase.eventId,
+    },
+  )
+  const claim = parseEmailClaim(claimData)
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
-    const resetUrl = `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(
-      resetData.properties.hashed_token
-    )}&type=${encodeURIComponent(
-      resetData.properties.verification_type
-    )}&next=${encodeURIComponent("/update-password")}`
+  if (claimError || !claim) {
+    console.error("Purchase recorded but email claim failed", {
+      provider: purchase.provider,
+      eventId: purchase.eventId,
+      code: claimError?.code,
+    })
+    return retryableDeliveryResponse()
+  }
 
-    try {
-      const { error: emailError } = await getResend().emails.send({
-        from: "Pibo <no-reply@mipibo.com>",
-        to: email,
-        subject: "Bienvenido a Pibo: configurá tu acceso",
-        html: welcomeEmail(fullName, email, resetUrl),
-      })
-
-      if (emailError) throw emailError
-    } catch (error) {
-      console.error("Purchase completed but welcome email delivery failed", { purchaseId, error })
-      return NextResponse.json({
-        success: true,
-        email_sent: false,
-        purchase_id: purchaseId,
-      })
-    }
-
+  if (claim.email_status === "sent") {
     return NextResponse.json({
       success: true,
-      email_sent: true,
-      purchase_id: purchaseId,
+      duplicate: true,
+      access_status: claim.access_status,
+      email_status: "sent",
     })
-  } catch (error) {
-    console.error("Purchase fulfillment failed", { purchaseId, error })
-
-    if (createdUser && userId) {
-      const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-      if (rollbackError) console.error("Could not roll back purchase user", { purchaseId, rollbackError })
-    }
-
-    return NextResponse.json({ error: "Purchase fulfillment failed" }, { status: 500 })
   }
+
+  if (!claim.claimed) {
+    return retryableDeliveryResponse(claim.access_status)
+  }
+
+  const actionUrl = claim.email_kind === "invitation"
+    ? `${appOrigin}/invite/${invitationToken}`
+    : `${appOrigin}/login?redirect=${encodeURIComponent("/curso")}`
+  const html = claim.email_kind === "invitation"
+    ? purchaseInvitationEmail(claim.full_name || undefined, actionUrl)
+    : courseReadyEmail(claim.full_name || undefined, actionUrl)
+
+  try {
+    const { data, error } = await getResend().emails.send(
+      {
+        from: process.env.RESEND_FROM_EMAIL?.trim() || "Pibo <no-reply@mipibo.com>",
+        to: claim.email,
+        subject: claim.email_kind === "invitation"
+          ? "Tu compra de Pibo esta aprobada"
+          : "Tu curso Pibo ya esta habilitado",
+        html,
+      },
+      {
+        headers: {
+          "Idempotency-Key": getPurchaseEmailIdempotencyKey(
+            purchase.provider,
+            purchase.eventId,
+          ),
+        },
+      },
+    )
+
+    if (error) throw error
+
+    const { data: completed, error: completionError } = await supabaseAdmin.rpc(
+      "complete_purchase_email",
+      {
+        purchase_provider: purchase.provider,
+        purchase_event_id: purchase.eventId,
+        purchase_email_provider_id: data?.id || "",
+      },
+    )
+
+    if (completionError || !completed) {
+      console.error("Purchase email sent but completion was not recorded", {
+        provider: purchase.provider,
+        eventId: purchase.eventId,
+        code: completionError?.code,
+      })
+      return retryableDeliveryResponse(claim.access_status)
+    }
+  } catch (error) {
+    await supabaseAdmin.rpc("fail_purchase_email", {
+      purchase_provider: purchase.provider,
+      purchase_event_id: purchase.eventId,
+      purchase_error_code: "delivery_failed",
+    })
+    console.error("Purchase recorded but email delivery failed", {
+      provider: purchase.provider,
+      eventId: purchase.eventId,
+      error,
+    })
+    return retryableDeliveryResponse(claim.access_status)
+  }
+
+  return NextResponse.json({
+    success: true,
+    access_status: claim.access_status,
+    email_status: "sent",
+  })
 }

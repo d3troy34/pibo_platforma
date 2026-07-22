@@ -62,8 +62,9 @@ Variables visibles por el navegador:
 
 Variables exclusivas del servidor:
 
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY` (o `SUPABASE_SERVICE_ROLE_KEY` sólo para proyectos antiguos)
 - `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
 - `WEBHOOK_SECRET`
 
 ## Base nueva y migración de clientes
@@ -86,3 +87,5 @@ El proyecto remoto nuevo todavía no fue creado ni recibió datos. Esto es inten
 - **Supabase**: autenticación, base de datos, reglas de acceso, archivos y tiempo real.
 - **Bunny.net Stream**: videos de las clases.
 - **Resend**: emails de registro, recuperación e invitación.
+
+El recorrido completo desde el pago hasta el acceso está documentado en [docs/purchase-bridge.md](docs/purchase-bridge.md).
