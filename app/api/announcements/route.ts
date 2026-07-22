@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { resend } from "@/lib/resend/client"
+import { getResend } from "@/lib/resend/client"
 import { announcementEmail } from "@/lib/email-templates"
 
 export async function POST(request: NextRequest) {
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { title, content } = body
+    const resend = getResend()
 
     // Get all enrolled students
     const { data: enrollments } = await supabase
@@ -49,8 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send emails to all students
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const emailPromises = enrollments.map(async (enrollment: any) => {
+    const emailPromises = enrollments.map(async (enrollment) => {
       const student = enrollment.profiles
       if (!student?.email) return null
 
@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
           subject: `📢 ${title}`,
           html: announcementEmail(title, content),
         })
-        return { success: true, email: student.email }
+        return { success: true }
       } catch (error) {
-        console.error(`Failed to send email to ${student.email}:`, error)
-        return { success: false, email: student.email, error }
+        console.error("Failed to send an announcement email", error)
+        return { success: false }
       }
     })
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { resend } from "@/lib/resend/client"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { getResend } from "@/lib/resend/client"
 import { confirmAccountEmail } from "@/lib/email-templates"
 import { checkRateLimit } from "@/lib/rate-limit"
 
@@ -20,9 +20,9 @@ function sanitizeRedirect(value: unknown): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Lightweight rate limiting stub (currently no-op in Vercel).
+    const supabaseAdmin = getSupabaseAdmin()
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    if (!checkRateLimit(`auth_register:${ip}`, 10, 60 * 1000)) {
+    if (!(await checkRateLimit(`auth_register:${ip}`, 10, 60 * 1000))) {
       return NextResponse.json(
         { error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." },
         { status: 429 }
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (password.length < 6) {
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,128}$/.test(password)) {
       return NextResponse.json(
-        { error: "La contrasena debe tener al menos 6 caracteres" },
+        { error: "La contraseña necesita 8 caracteres, una letra y un número" },
         { status: 400 }
       )
     }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       tokenHash
     )}&type=${encodeURIComponent(type)}&next=${encodeURIComponent(redirectTo)}`
 
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
       subject: "Confirma tu cuenta - Mipibo",

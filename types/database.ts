@@ -18,6 +18,11 @@ export type Database = {
           phone: string | null
           avatar_url: string | null
           role: "student" | "admin"
+          goal: string | null
+          target_university: string | null
+          target_arrival_date: string | null
+          onboarding_completed_at: string | null
+          notification_preferences: Json
           created_at: string
           updated_at: string
         }
@@ -29,6 +34,11 @@ export type Database = {
           phone?: string | null
           avatar_url?: string | null
           role?: "student" | "admin"
+          goal?: string | null
+          target_university?: string | null
+          target_arrival_date?: string | null
+          onboarding_completed_at?: string | null
+          notification_preferences?: Json
           created_at?: string
           updated_at?: string
         }
@@ -40,7 +50,35 @@ export type Database = {
           phone?: string | null
           avatar_url?: string | null
           role?: "student" | "admin"
+          goal?: string | null
+          target_university?: string | null
+          target_arrival_date?: string | null
+          onboarding_completed_at?: string | null
+          notification_preferences?: Json
           created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_directory: {
+        Row: {
+          id: string
+          full_name: string | null
+          avatar_url: string | null
+          role: "student" | "admin"
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          avatar_url?: string | null
+          role: "student" | "admin"
+          updated_at?: string
+        }
+        Update: {
+          full_name?: string | null
+          avatar_url?: string | null
+          role?: "student" | "admin"
           updated_at?: string
         }
         Relationships: []
@@ -49,6 +87,7 @@ export type Database = {
         Row: {
           id: string
           title: string
+          slug: string
           description: string | null
           thumbnail_url: string | null
           bunny_video_guid: string | null
@@ -56,12 +95,15 @@ export type Database = {
           resources: Json
           order_index: number
           is_published: boolean
+          published_at: string | null
+          created_by: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           title: string
+          slug: string
           description?: string | null
           thumbnail_url?: string | null
           bunny_video_guid?: string | null
@@ -69,12 +111,15 @@ export type Database = {
           resources?: Json
           order_index?: number
           is_published?: boolean
+          published_at?: string | null
+          created_by?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           title?: string
+          slug?: string
           description?: string | null
           thumbnail_url?: string | null
           bunny_video_guid?: string | null
@@ -82,6 +127,8 @@ export type Database = {
           resources?: Json
           order_index?: number
           is_published?: boolean
+          published_at?: string | null
+          created_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -93,13 +140,13 @@ export type Database = {
           user_id: string
           payment_provider: "stripe" | "dlocal" | "manual"
           payment_id: string | null
-          payment_status: "pending" | "completed" | "failed" | "refunded"
+          payment_status: "pending" | "completed" | "failed" | "refunded" | "revoked"
           amount_usd: number
           currency: string
           amount_local: number | null
           payment_method: string | null
           country: string | null
-          enrolled_at: string | null
+          enrolled_at: string
           created_at: string
           updated_at: string
         }
@@ -108,13 +155,13 @@ export type Database = {
           user_id: string
           payment_provider: "stripe" | "dlocal" | "manual"
           payment_id?: string | null
-          payment_status?: "pending" | "completed" | "failed" | "refunded"
-          amount_usd: number
-          currency: string
+          payment_status?: "pending" | "completed" | "failed" | "refunded" | "revoked"
+          amount_usd?: number
+          currency?: string
           amount_local?: number | null
           payment_method?: string | null
           country?: string | null
-          enrolled_at?: string | null
+          enrolled_at?: string
           created_at?: string
           updated_at?: string
         }
@@ -123,13 +170,13 @@ export type Database = {
           user_id?: string
           payment_provider?: "stripe" | "dlocal" | "manual"
           payment_id?: string | null
-          payment_status?: "pending" | "completed" | "failed" | "refunded"
+          payment_status?: "pending" | "completed" | "failed" | "refunded" | "revoked"
           amount_usd?: number
           currency?: string
           amount_local?: number | null
           payment_method?: string | null
           country?: string | null
-          enrolled_at?: string | null
+          enrolled_at?: string
           created_at?: string
           updated_at?: string
         }
@@ -180,7 +227,7 @@ export type Database = {
             foreignKeyName: "direct_messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "profile_directory"
             referencedColumns: ["id"]
           }
         ]
@@ -190,28 +237,34 @@ export type Database = {
           id: string
           title: string
           content: string
+          category: "general" | "documents" | "universities" | "life_in_argentina"
           created_by: string
           created_at: string
           published_at: string | null
           is_active: boolean
+          updated_at: string
         }
         Insert: {
           id?: string
           title: string
           content: string
+          category?: "general" | "documents" | "universities" | "life_in_argentina"
           created_by: string
           created_at?: string
           published_at?: string | null
           is_active?: boolean
+          updated_at?: string
         }
         Update: {
           id?: string
           title?: string
           content?: string
+          category?: "general" | "documents" | "universities" | "life_in_argentina"
           created_by?: string
           created_at?: string
           published_at?: string | null
           is_active?: boolean
+          updated_at?: string
         }
         Relationships: [
           {
@@ -278,8 +331,10 @@ export type Database = {
         Row: {
           id: string
           email: string
-          token: string
+          full_name: string | null
+          token_hash: string
           invited_by: string | null
+          accepted_by: string | null
           accepted_at: string | null
           expires_at: string
           created_at: string
@@ -287,8 +342,10 @@ export type Database = {
         Insert: {
           id?: string
           email: string
-          token: string
+          full_name?: string | null
+          token_hash: string
           invited_by?: string | null
+          accepted_by?: string | null
           accepted_at?: string | null
           expires_at: string
           created_at?: string
@@ -296,8 +353,10 @@ export type Database = {
         Update: {
           id?: string
           email?: string
-          token?: string
+          full_name?: string | null
+          token_hash?: string
           invited_by?: string | null
+          accepted_by?: string | null
           accepted_at?: string | null
           expires_at?: string
           created_at?: string
@@ -317,14 +376,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_admin: {
-        Args: Record<string, never>
-        Returns: boolean
-      }
-      is_enrolled: {
-        Args: Record<string, never>
-        Returns: boolean
-      }
       get_course_modules_outline: {
         Args: Record<string, never>
         Returns: Array<{
@@ -337,7 +388,43 @@ export type Database = {
           can_access: boolean
           is_locked: boolean
           has_video: boolean
+          duration_seconds: number
         }>
+      }
+      get_unread_message_count: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      mark_message_read: {
+        Args: { message_id: string }
+        Returns: undefined
+      }
+      accept_invitation: {
+        Args: {
+          invitation_token_hash: string
+          invited_user_id: string
+        }
+        Returns: boolean
+      }
+      fulfill_purchase: {
+        Args: {
+          purchase_user_id: string
+          purchase_provider: "stripe" | "dlocal" | "manual"
+          purchase_event_id: string
+          purchase_payment_id: string
+          purchase_amount_usd: number
+          purchase_currency: string
+          purchase_payload?: Json
+        }
+        Returns: boolean
+      }
+      consume_rate_limit: {
+        Args: {
+          limit_rate_key: string
+          limit_request_count: number
+          limit_window_seconds: number
+        }
+        Returns: boolean
       }
     }
     Enums: {
@@ -372,5 +459,8 @@ export type ModuleResource = {
 
 // Direct Message types
 export interface DirectMessageWithSender extends DirectMessage {
-  sender: Pick<Profile, "id" | "full_name" | "avatar_url" | "role">
+  sender: Pick<
+    Database["public"]["Tables"]["profile_directory"]["Row"],
+    "id" | "full_name" | "avatar_url" | "role"
+  >
 }

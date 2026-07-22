@@ -30,8 +30,7 @@ export function ModuleActions({
 
         const completed = duration > 0 && seconds / duration >= 0.9
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from("module_progress") as any).upsert(
+        const { error } = await supabase.from("module_progress").upsert(
           {
             user_id: user.id,
             module_id: moduleId,
@@ -45,9 +44,11 @@ export function ModuleActions({
           }
         )
 
+        if (error) throw error
+
         if (completed && !isCompleted) {
           setIsCompleted(true)
-          toast.success("Modulo completado!")
+          toast.success("¡Clase completada!")
           router.refresh()
         }
       } catch (error) {
@@ -64,8 +65,7 @@ export function ModuleActions({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("module_progress") as any).upsert(
+      const { error } = await supabase.from("module_progress").upsert(
         {
           user_id: user.id,
           module_id: moduleId,
@@ -78,11 +78,13 @@ export function ModuleActions({
         }
       )
 
+      if (error) throw error
+
       setIsCompleted(true)
-      toast.success("Modulo marcado como completado!")
+      toast.success("Clase marcada como completa")
       router.refresh()
     } catch {
-      toast.error("Error al marcar el modulo como completado")
+      toast.error("No pudimos marcar la clase")
     } finally {
       setIsLoading(false)
     }
@@ -108,21 +110,21 @@ export function ModuleActions({
   }, [moduleId, saveProgress])
 
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-3 rounded-[1.25rem] border border-ink/10 bg-white/75 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {isCompleted ? (
-          <span className="flex items-center gap-2 text-success">
+          <span className="flex items-center gap-2 font-semibold text-indigo">
             <CheckCircle2 className="h-5 w-5" />
-            Modulo completado
+            Clase completada
           </span>
         ) : (
-          <span>Progreso guardado automaticamente</span>
+          <span>Guardamos tu avance automáticamente</span>
         )}
       </div>
 
       {!isCompleted && (
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={handleMarkComplete}
           disabled={isLoading}
@@ -133,7 +135,7 @@ export function ModuleActions({
           ) : (
             <CheckCircle2 className="h-4 w-4" />
           )}
-          Marcar como completado
+          Marcar como completa
         </Button>
       )}
     </div>

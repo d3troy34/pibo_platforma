@@ -1,33 +1,31 @@
 "use client"
 
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { useState } from "react"
 import {
-  BookOpen,
   BarChart3,
-  User,
-  LogOut,
-  Menu,
-  X,
-  MessageSquare,
-  ShoppingBag,
-  Megaphone,
+  Bell,
+  Headphones,
+  LayoutDashboard,
   Lock,
+  LogOut,
+  Map,
+  Menu,
   Moon,
   Sun,
+  UserRound,
+  X,
 } from "lucide-react"
-import { useState } from "react"
-import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
+import { toast } from "sonner"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 import type { Profile } from "@/types/database"
 
 interface SidebarProps {
@@ -37,154 +35,153 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: "Mi Curso", href: "/curso", icon: BookOpen, requiresPaid: false },
-  { name: "Mi Progreso", href: "/progreso", icon: BarChart3, requiresPaid: true },
-  { name: "Mensajes", href: "/mensajes", icon: MessageSquare, requiresPaid: true },
-  { name: "Anuncios", href: "/anuncios", icon: Megaphone, requiresPaid: true },
-  { name: "Catálogo", href: "/catalogo", icon: ShoppingBag, requiresPaid: true },
-  { name: "Mi Perfil", href: "/perfil", icon: User, requiresPaid: true },
-]
+  { name: "Mi ruta", href: "/curso", icon: Map, requiresPaid: false },
+  { name: "Progreso", href: "/progreso", icon: BarChart3, requiresPaid: true },
+  { name: "Soporte", href: "/mensajes", icon: Headphones, requiresPaid: true },
+  { name: "Novedades", href: "/anuncios", icon: Bell, requiresPaid: true },
+  { name: "Perfil", href: "/perfil", icon: UserRound, requiresPaid: false },
+] as const
+
+function getInitials(name?: string | null): string {
+  if (!name) return "PI"
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
 
 export function Sidebar({ user, totalProgress = 0, hasEnrollment = true }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { resolvedTheme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
-  const { theme, resolvedTheme, setTheme } = useTheme()
-  const supabase = createClient()
 
-  const currentTheme = resolvedTheme || theme
-  const isDark = currentTheme === "dark"
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
+  const logout = async () => {
+    const { error } = await createClient().auth.signOut()
+    if (error) {
+      toast.error("No pudimos cerrar la sesión")
+      return
+    }
     toast.success("Sesión cerrada")
     router.push("/login")
     router.refresh()
   }
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
+  const sidebar = (
+    <aside className="flex h-full w-[17rem] flex-col border-r border-ink/10 bg-white/55 backdrop-blur-sm">
+      <div className="px-7 py-7">
+        <BrandLogo href="/curso" className="text-[2.7rem]" />
+      </div>
+
+      <nav className="flex-1 space-y-1 px-4 py-3" aria-label="Navegación principal">
+        {navigation.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+          const locked = item.requiresPaid && !hasEnrollment
+          const Icon = item.icon
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+                active
+                  ? "bg-indigo text-white shadow-[0_10px_30px_rgba(52,55,217,0.17)]"
+                  : "text-muted-foreground hover:bg-paper hover:text-ink"
+              )}
+            >
+              <Icon className="h-[1.15rem] w-[1.15rem]" />
+              <span>{item.name}</span>
+              {locked && <Lock className="ml-auto h-3.5 w-3.5 opacity-70" />}
+            </Link>
+          )
+        })}
+
+        {user?.role === "admin" && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-paper hover:text-ink"
+          >
+            <LayoutDashboard className="h-[1.15rem] w-[1.15rem]" /> Administrar
+          </Link>
+        )}
+      </nav>
+
+      {hasEnrollment && (
+        <div className="mx-5 mb-5 border-y border-ink/10 py-5">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Tu avance</p>
+              <p className="mt-1 font-display text-3xl">{totalProgress}%</p>
+            </div>
+            <span className="text-xs text-muted-foreground">Seguí así</span>
+          </div>
+          <Progress value={totalProgress} aria-label={`${totalProgress}% de la ruta recorrida`} className="h-1.5" />
+        </div>
+      )}
+
+      <div className="border-t border-ink/10 p-4">
+        <div className="mb-3 flex items-center gap-3 rounded-xl px-2 py-2">
+          <Avatar className="h-10 w-10 border border-ink/10">
+            <AvatarImage src={user?.avatar_url || undefined} alt="" />
+            <AvatarFallback className="bg-indigo text-xs text-white">{getInitials(user?.full_name)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{user?.full_name || "Estudiante Pibo"}</p>
+            <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 justify-start text-muted-foreground"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          >
+            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+            {resolvedTheme === "dark" ? "Claro" : "Oscuro"}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={logout} aria-label="Cerrar sesión">
+            <LogOut />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  )
 
   return (
     <>
-      {/* Mobile menu button */}
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={() => setIsOpen(!isOpen)}
+        className="fixed left-4 top-4 z-[60] bg-white lg:hidden"
+        onClick={() => setIsOpen((open) => !open)}
         aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
         aria-expanded={isOpen}
       >
-        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        {isOpen ? <X /> : <Menu />}
       </Button>
 
-      {/* Overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-ink/35 backdrop-blur-sm lg:hidden"
           onClick={() => setIsOpen(false)}
+          aria-label="Cerrar menú"
         />
       )}
 
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-secondary/50 border-r border-border flex flex-col transition-transform duration-300",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
-        {/* Logo */}
-        <div className="p-6">
-          <Link href="/curso">
-            <Image src="/logo.png" alt="Pibo" width={100} height={40} />
-          </Link>
-        </div>
-
-        <Separator />
-
-        {/* User info */}
-        <div className="p-6">
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={user?.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary/20 text-primary">
-                {getInitials(user?.full_name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{user?.full_name || "Estudiante"}</p>
-              <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
-            </div>
-          </div>
-
-          {/* Progress */}
-          {hasEnrollment && (
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progreso total</span>
-                <span className="font-medium text-primary">{totalProgress}%</span>
-              </div>
-              <Progress value={totalProgress} className="h-2" />
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
-          {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href)
-            const isLocked = item.requiresPaid && !hasEnrollment
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-                {isLocked && <Lock className="h-4 w-4 ml-auto opacity-70" />}
-              </Link>
-            )
-          })}
-        </nav>
-
-        <Separator />
-
-        {/* Theme toggle & Logout */}
-        <div className="p-4 space-y-1">
-          <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
-          >
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            {isDark ? "Modo claro" : "Modo oscuro"}
-          </button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-5 w-5" />
-            Cerrar Sesión
-          </Button>
-        </div>
-      </aside>
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {sidebar}
+      </div>
     </>
   )
 }

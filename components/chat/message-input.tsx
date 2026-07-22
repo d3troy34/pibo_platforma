@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
 import { toast } from "sonner"
+import type { DirectMessageWithSender } from "@/types/database"
 
 interface MessageInputProps {
   studentId: string
@@ -32,8 +33,7 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         return
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from("direct_messages") as any)
+      const { data, error } = await supabase.from("direct_messages")
         .insert({
           student_id: studentId,
           sender_id: user.id,
@@ -52,6 +52,25 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         throw new Error("Message was not saved")
       }
 
+      const { data: sender } = await supabase
+        .from("profile_directory")
+        .select("id, full_name, avatar_url, role")
+        .eq("id", user.id)
+        .single()
+
+      const localMessage: DirectMessageWithSender = {
+        ...data,
+        sender: sender || {
+          id: user.id,
+          full_name: "Vos",
+          avatar_url: null,
+          role: "student",
+        },
+      }
+
+      window.dispatchEvent(
+        new CustomEvent(`message-created-${studentId}`, { detail: localMessage })
+      )
       setMessage("")
       onMessageSent?.()
     } catch (error) {
@@ -63,15 +82,15 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form onSubmit={handleSubmit} className="flex items-end gap-3">
       <Textarea
         id="chat-message"
         name="message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Escribe tu mensaje..."
-        aria-label="Escribe tu mensaje"
-        className="flex-1 min-h-[80px] resize-none"
+        placeholder="Escribí tu mensaje..."
+        aria-label="Escribí tu mensaje"
+        className="min-h-[64px] flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
         disabled={isSending}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -83,7 +102,7 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
       <Button
         type="submit"
         disabled={isSending || !message.trim()}
-        className="btn-gradient"
+        className="mb-1 shrink-0 rounded-full"
         size="icon"
         aria-label="Enviar mensaje"
       >

@@ -1,26 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Loader2, User, Mail, Phone, Calendar } from "lucide-react"
-import { toast } from "sonner"
+import { useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { CalendarDays, Loader2, Mail, MapPin, Phone, Target, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -28,15 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
-import type { Profile, Enrollment } from "@/types/database"
+import type { Enrollment, Profile } from "@/types/database"
 
 const profileSchema = z.object({
-  full_name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  phone: z.string().optional(),
-  country: z.string().optional(),
+  full_name: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(120),
+  phone: z.string().max(40).optional(),
+  country: z.string().max(40).optional(),
 })
 
 type ProfileFormValues = z.infer<typeof profileSchema>
@@ -46,21 +37,41 @@ const COUNTRIES = [
   { value: "BR", label: "Brasil" },
   { value: "CL", label: "Chile" },
   { value: "CO", label: "Colombia" },
-  { value: "MX", label: "Mexico" },
-  { value: "PE", label: "Peru" },
+  { value: "MX", label: "México" },
+  { value: "PE", label: "Perú" },
   { value: "EC", label: "Ecuador" },
   { value: "VE", label: "Venezuela" },
   { value: "UY", label: "Uruguay" },
   { value: "PY", label: "Paraguay" },
   { value: "BO", label: "Bolivia" },
   { value: "OTHER", label: "Otro" },
-]
+] as const
 
-export default function ProfileClient() {
+const GOAL_LABELS: Record<string, string> = {
+  estudiar: "Estudiar en Argentina",
+  trabajar: "Trabajar en Argentina",
+  mudarme: "Organizar mi mudanza",
+  explorar: "Explorar mis opciones",
+}
+
+interface ProfileClientProps {
+  initialProfile: Profile
+  initialEnrollment: Enrollment | null
+}
+
+function getInitials(name: string | null): string {
+  if (!name) return "PI"
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+export function ProfileClient({ initialProfile, initialEnrollment }: ProfileClientProps) {
   const router = useRouter()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [profile, setProfile] = useState(initialProfile)
   const [isSaving, setIsSaving] = useState(false)
   const supabase = createClient()
 
@@ -68,239 +79,155 @@ export default function ProfileClient() {
     register,
     handleSubmit,
     setValue,
-    reset,
     formState: { errors },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
+    defaultValues: {
+      full_name: initialProfile.full_name || "",
+      phone: initialProfile.phone || "",
+      country: initialProfile.country || "",
+    },
   })
 
-  useEffect(() => {
-    async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single() as { data: Profile | null }
-
-      const { data: enrollmentData } = await supabase
-        .from("enrollments")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("payment_status", "completed")
-        .single() as { data: Enrollment | null }
-
-      if (profileData) {
-        setProfile(profileData)
-        reset({
-          full_name: profileData.full_name || "",
-          phone: profileData.phone || "",
-          country: profileData.country || "",
-        })
-      }
-
-      if (enrollmentData) {
-        setEnrollment(enrollmentData)
-      }
-
-      setIsLoading(false)
-    }
-
-    loadProfile()
-  }, [supabase, reset])
-
-  const onSubmit = async (data: ProfileFormValues) => {
+  const onSubmit = async (values: ProfileFormValues) => {
     setIsSaving(true)
+
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("profiles") as any)
-        .update({
-          full_name: data.full_name,
-          phone: data.phone || null,
-          country: data.country || null,
-        })
-        .eq("id", user.id)
-
-      if (error) {
-        toast.error("Error al actualizar el perfil")
-        return
+      const updates = {
+        full_name: values.full_name.trim(),
+        phone: values.phone?.trim() || null,
+        country: values.country || null,
       }
+      const { error } = await supabase.from("profiles").update(updates).eq("id", profile.id)
 
-      toast.success("Perfil actualizado correctamente")
+      if (error) throw error
+
+      setProfile((current) => ({ ...current, ...updates }))
+      toast.success("Perfil actualizado")
       router.refresh()
-    } catch {
-      toast.error("Ocurrio un error. Intenta de nuevo.")
+    } catch (error) {
+      console.error("Could not update profile", error)
+      toast.error("No pudimos guardar los cambios")
     } finally {
       setIsSaving(false)
     }
   }
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "U"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  const goalLabel = profile.goal ? GOAL_LABELS[profile.goal] || profile.goal : "Definir mi próximo paso"
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Mi Perfil</h1>
-        <p className="text-muted-foreground mt-2">
-          Administra tu informacion personal
+    <div className="mx-auto max-w-6xl space-y-10">
+      <header className="border-b border-ink/10 pb-8">
+        <p className="eyebrow mb-3">Tu espacio</p>
+        <h1 className="display-title text-5xl sm:text-6xl">Perfil y objetivo.</h1>
+        <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+          Mantené tus datos al día para que la ruta y el acompañamiento tengan contexto.
         </p>
-      </div>
+      </header>
 
-      {/* Profile Card */}
-      <Card className="border-border/50 bg-card/50">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="bg-primary/20 text-primary text-2xl">
-                {getInitials(profile?.full_name)}
+      <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+        <aside className="space-y-5">
+          <section className="rounded-[2rem] bg-indigo p-7 text-white shadow-pibo">
+            <Avatar className="h-20 w-20 border border-white/20">
+              <AvatarImage src={profile.avatar_url || undefined} alt="" />
+              <AvatarFallback className="bg-white/15 font-display text-2xl text-white">
+                {getInitials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <CardTitle>{profile?.full_name || "Estudiante"}</CardTitle>
-              <CardDescription>{profile?.email}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+            <h2 className="mt-6 font-display text-3xl">{profile.full_name || "Estudiante Pibo"}</h2>
+            <p className="mt-1 text-sm text-white/70">{profile.email}</p>
 
-      {/* Edit Form */}
-      <Card className="border-border/50 bg-card/50">
-        <CardHeader>
-          <CardTitle>Informacion Personal</CardTitle>
-          <CardDescription>
-            Actualiza tus datos personales
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Nombre Completo</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="full_name"
-                  placeholder="Tu nombre completo"
-                  className="pl-9"
-                  {...register("full_name")}
-                />
+            <div className="mt-8 border-t border-white/20 pt-6">
+              <p className="text-[0.7rem] font-bold uppercase tracking-[0.2em] text-white/60">Tu norte</p>
+              <div className="mt-3 flex items-start gap-3">
+                <Target className="mt-0.5 h-5 w-5 shrink-0 text-pink" />
+                <p className="font-medium leading-6">{goalLabel}</p>
               </div>
-              {errors.full_name && (
-                <p className="text-sm text-destructive">{errors.full_name.message}</p>
+              {profile.target_university && (
+                <p className="mt-3 text-sm leading-6 text-white/70">{profile.target_university}</p>
               )}
+            </div>
+          </section>
+
+          <section className="paper-panel p-6">
+            <p className="eyebrow mb-4">Acceso</p>
+            <div className="flex items-start gap-3">
+              <CalendarDays className="mt-0.5 h-5 w-5 text-indigo" />
+              <div>
+                <p className="font-semibold text-ink">
+                  {initialEnrollment ? "Acceso completo" : "Cuenta activa"}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {initialEnrollment?.enrolled_at
+                    ? `Desde el ${format(new Date(initialEnrollment.enrolled_at), "d 'de' MMMM 'de' yyyy", { locale: es })}`
+                    : "Podés completar tu perfil y recorrer la clase abierta."}
+                </p>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section className="paper-panel p-6 sm:p-8">
+          <div className="mb-8">
+            <p className="eyebrow mb-2">Datos personales</p>
+            <h2 className="font-display text-3xl">Lo esencial, sin vueltas.</h2>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">Nombre completo</Label>
+              <div className="relative">
+                <UserRound className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="full_name" className="pl-11" autoComplete="name" {...register("full_name")} />
+              </div>
+              {errors.full_name && <p className="text-sm text-destructive">{errors.full_name.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  value={profile?.email || ""}
-                  disabled
-                  className="pl-9 bg-secondary/50"
-                />
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input id="email" value={profile.email} disabled className="bg-paper pl-11" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                El email no puede ser modificado
-              </p>
+              <p className="text-xs text-muted-foreground">Para cambiarlo, escribinos desde Soporte.</p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefono</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  placeholder="+54 11 1234-5678"
-                  className="pl-9"
-                  {...register("phone")}
-                />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="phone" className="pl-11" placeholder="+54 11 1234 5678" autoComplete="tel" {...register("phone")} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="country">País</Label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Select defaultValue={profile.country || undefined} onValueChange={(value) => setValue("country", value, { shouldDirty: true })}>
+                    <SelectTrigger id="country" className="pl-11">
+                      <SelectValue placeholder="Seleccioná tu país" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country.value} value={country.value}>{country.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="country">Pais</Label>
-              <Select
-                defaultValue={profile?.country || undefined}
-                onValueChange={(value) => setValue("country", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona tu pais" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex justify-end border-t border-ink/10 pt-6">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="animate-spin" />}
+                Guardar cambios
+              </Button>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="btn-gradient text-primary-foreground"
-            >
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Guardar Cambios
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-
-      {/* Enrollment Info */}
-      {enrollment && (
-        <Card className="border-border/50 bg-card/50">
-          <CardHeader>
-            <CardTitle>Informacion de Inscripcion</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Fecha de inscripcion</p>
-                <p className="font-medium">
-                  {enrollment.enrolled_at
-                    ? format(new Date(enrollment.enrolled_at), "d 'de' MMMM, yyyy", { locale: es })
-                    : "No disponible"
-                  }
-                </p>
-              </div>
-            </div>
-            <Separator />
-            <div>
-              <p className="text-sm text-muted-foreground">Tipo de acceso</p>
-              <p className="font-medium text-primary">Acceso de por vida</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          </form>
+        </section>
+      </div>
     </div>
   )
 }
-

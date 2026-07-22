@@ -1,189 +1,170 @@
+import { createHash, randomBytes } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { resend } from "@/lib/resend/client"
+
 import { invitationEmail } from "@/lib/email-templates"
 import { checkRateLimit } from "@/lib/rate-limit"
-import { randomBytes } from "crypto"
+import { getResend } from "@/lib/resend/client"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/types/database"
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const email = value.trim().toLowerCase()
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null
+  return email
+}
+
+function normalizeFullName(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const fullName = value.trim()
+  return fullName ? fullName.slice(0, 120) : null
+}
+
+async function getAdminId(): Promise<string | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  const { data: profile } = (await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()) as { data: Pick<Profile, "role"> | null }
+
+  return profile?.role === "admin" ? user.id : null
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Verify user is authenticated and is admin
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      )
+    const adminId = await getAdminId()
+    if (!adminId) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single() as { data: Pick<Profile, "role"> | null }
-
-    if (profile?.role !== "admin") {
+    if (!(await checkRateLimit(`invite:${adminId}`, 10, 60 * 1000))) {
       return NextResponse.json(
-        { error: "Acceso denegado" },
-        { status: 403 }
-      )
-    }
-
-    // Rate limiting: 10 invitations per minute per user
-    const rateLimitKey = `invite:${user.id}`
-    if (!checkRateLimit(rateLimitKey, 10, 60 * 1000)) {
-      return NextResponse.json(
-        { error: "Demasiadas solicitudes. Por favor, espera un momento." },
+        { error: "Demasiadas solicitudes. Esperá un momento." },
         { status: 429 }
       )
     }
 
-    const { email, fullName } = await request.json()
+    const body = await request.json()
+    const email = normalizeEmail(body?.email)
+    const fullName = normalizeFullName(body?.fullName)
 
     if (!email) {
-      return NextResponse.json(
-        { error: "Email es requerido" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Ingresá un email válido" }, { status: 400 })
     }
 
-    // Check if invitation already exists for this email
-    const { data: existingInvitation } = await supabaseAdmin
+    const supabaseAdmin = getSupabaseAdmin()
+
+    const { data: existingInvitation, error: invitationLookupError } = await supabaseAdmin
       .from("invitations")
-      .select("id, accepted_at")
-      .eq("email", email.toLowerCase())
+      .select("id")
+      .eq("email", email)
       .is("accepted_at", null)
-      .single()
+      .maybeSingle()
+
+    if (invitationLookupError) {
+      console.error("Could not check pending invitation", invitationLookupError)
+      return NextResponse.json({ error: "No pudimos verificar la invitación" }, { status: 500 })
+    }
 
     if (existingInvitation) {
       return NextResponse.json(
         { error: "Ya existe una invitación pendiente para este email" },
-        { status: 400 }
+        { status: 409 }
       )
     }
 
-    // Check if user already exists
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
       .from("profiles")
-      .select("id, email")
-      .eq("email", email.toLowerCase())
-      .single()
+      .select("id")
+      .eq("email", email)
+      .maybeSingle()
+
+    if (profileLookupError) {
+      console.error("Could not check existing profile", profileLookupError)
+      return NextResponse.json({ error: "No pudimos verificar la cuenta" }, { status: 500 })
+    }
 
     if (existingProfile) {
       return NextResponse.json(
         { error: "Este email ya tiene una cuenta registrada" },
-        { status: 400 }
+        { status: 409 }
       )
     }
 
-    // Generate invitation token
     const token = randomBytes(32).toString("hex")
+    const tokenHash = createHash("sha256").update(token).digest("hex")
     const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiration
+    expiresAt.setDate(expiresAt.getDate() + 7)
 
-    // Create invitation
-    const { error: insertError } = await supabaseAdmin.from("invitations")
-      .insert({
-        email: email.toLowerCase(),
-        token,
-        invited_by: user.id,
-        expires_at: expiresAt.toISOString(),
-      })
+    const { error: insertError } = await supabaseAdmin.from("invitations").insert({
+      email,
+      full_name: fullName,
+      token_hash: tokenHash,
+      invited_by: adminId,
+      expires_at: expiresAt.toISOString(),
+    })
 
     if (insertError) {
-      console.error("Error creating invitation:", insertError)
-      return NextResponse.json(
-        { error: "Error al crear la invitación" },
-        { status: 500 }
-      )
+      console.error("Could not create invitation", insertError)
+      return NextResponse.json({ error: "No pudimos crear la invitación" }, { status: 500 })
     }
 
-    // Send invitation email
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
     const inviteUrl = `${appUrl}/invite/${token}`
 
-    const { error: emailError } = await resend.emails.send({
-      from: "Mipibo <no-reply@mipibo.com>",
-      to: email,
-      subject: "Invitación a Mipibo - Tu acceso al curso",
-      html: invitationEmail(fullName, inviteUrl),
-    })
+    try {
+      const { error: emailError } = await getResend().emails.send({
+        from: "Pibo <no-reply@mipibo.com>",
+        to: email,
+        subject: "Tu invitación a Pibo",
+        html: invitationEmail(fullName || undefined, inviteUrl),
+      })
 
-    if (emailError) {
-      console.error("Error sending email:", emailError)
-      // Still return success since the invitation was created
+      if (emailError) throw emailError
+    } catch (error) {
+      console.error("Invitation created but email delivery failed", error)
       return NextResponse.json({
         success: true,
-        message: "Invitación creada pero hubo un error al enviar el email",
-        inviteUrl, // Include URL for manual sharing
+        message: "La invitación quedó creada, pero el email no salió",
+        inviteUrl,
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Invitación enviada correctamente",
-    })
+    return NextResponse.json({ success: true, message: "Invitación enviada" })
   } catch (error) {
-    console.error("Error in invite API:", error)
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    console.error("Unexpected invite API error", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
-// Get pending invitations
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    // Verify user is authenticated and is admin
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      )
+    const adminId = await getAdminId()
+    if (!adminId) {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single() as { data: Pick<Profile, "role"> | null }
-
-    if (profile?.role !== "admin") {
-      return NextResponse.json(
-        { error: "Acceso denegado" },
-        { status: 403 }
-      )
-    }
-
-    // Get all invitations
-    const { data: invitations, error } = await supabaseAdmin
+    const { data: invitations, error } = await getSupabaseAdmin()
       .from("invitations")
-      .select("*")
+      .select("id, email, full_name, invited_by, accepted_by, accepted_at, expires_at, created_at")
       .order("created_at", { ascending: false })
 
     if (error) {
-      return NextResponse.json(
-        { error: "Error al obtener invitaciónes" },
-        { status: 500 }
-      )
+      console.error("Could not list invitations", error)
+      return NextResponse.json({ error: "No pudimos obtener las invitaciones" }, { status: 500 })
     }
 
     return NextResponse.json({ invitations })
   } catch (error) {
-    console.error("Error in get invitations API:", error)
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    console.error("Unexpected invitation list error", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

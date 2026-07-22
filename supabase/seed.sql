@@ -1,0 +1,2 @@
+-- Production data is migrated from the paused Pibo project after a verified
+-- export. Keep the local baseline intentionally empty.

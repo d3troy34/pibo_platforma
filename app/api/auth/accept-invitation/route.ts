@@ -1,106 +1,97 @@
+import { createHash } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import type { Invitation } from "@/types/database"
+
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+
+const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,128}$/
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, fullName, password } = await request.json()
+    const body = await request.json()
+    const token = typeof body?.token === "string" ? body.token.trim() : ""
+    const fullName = typeof body?.fullName === "string" ? body.fullName.trim() : ""
+    const country = typeof body?.country === "string" ? body.country.trim() : ""
+    const password = typeof body?.password === "string" ? body.password : ""
 
-    if (!token || !fullName || !password) {
+    if (!token || fullName.length < 2 || !PASSWORD_PATTERN.test(password)) {
       return NextResponse.json(
-        { error: "Todos los campos son requeridos" },
+        { error: "Revisá tus datos. La contraseña necesita 8 caracteres, una letra y un número." },
         { status: 400 }
       )
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "La contrasena debe tener al menos 6 caracteres" },
-        { status: 400 }
-      )
-    }
+    const tokenHash = createHash("sha256").update(token).digest("hex")
+    const supabaseAdmin = getSupabaseAdmin()
 
-    // Find the invitation
     const { data: invitation, error: invitationError } = await supabaseAdmin
       .from("invitations")
-      .select("*")
-      .eq("token", token)
+      .select("id, email")
+      .eq("token_hash", tokenHash)
       .is("accepted_at", null)
       .gt("expires_at", new Date().toISOString())
-      .single()
+      .maybeSingle()
 
-    if (invitationError || !invitation) {
-      return NextResponse.json(
-        { error: "Invitacion invalida o expirada" },
-        { status: 400 }
-      )
+    if (invitationError) {
+      console.error("Could not validate invitation", invitationError)
+      return NextResponse.json({ error: "No pudimos validar la invitación" }, { status: 500 })
     }
 
-    const typedInvitation = invitation as Invitation
+    if (!invitation) {
+      return NextResponse.json({ error: "La invitación es inválida o venció" }, { status: 400 })
+    }
 
-    // Create user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: typedInvitation.email,
+      email: invitation.email,
       password,
-      email_confirm: true, // Auto-confirm email since we invited them
+      email_confirm: true,
       user_metadata: {
         full_name: fullName,
+        country: country || null,
       },
     })
 
-    if (authError) {
-      console.error("Error creating user:", authError)
-      return NextResponse.json(
-        { error: "Error al crear la cuenta" },
-        { status: 500 }
-      )
+    if (authError || !authData.user) {
+      console.error("Could not create invited user", authError)
+      return NextResponse.json({ error: "No pudimos crear la cuenta" }, { status: 500 })
     }
 
     const userId = authData.user.id
-
-    // Update profile with full name
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin.from("profiles") as any)
-      .update({
-        full_name: fullName,
-      })
-      .eq("id", userId)
-
-    // Create enrollment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: enrollmentError } = await (supabaseAdmin.from("enrollments") as any)
-      .insert({
-        user_id: userId,
-        payment_provider: "manual",
-        payment_status: "completed",
-        payment_method: "invitation",
-        amount_usd: 0,
-        currency: "USD",
-        enrolled_at: new Date().toISOString(),
-      })
-
-    if (enrollmentError) {
-      console.error("Error creating enrollment:", enrollmentError)
-      // Continue anyway since the user was created
+    const removeCreatedUser = async () => {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      if (error) console.error("Could not roll back invited user", error)
     }
 
-    // Mark invitation as accepted
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin.from("invitations") as any)
-      .update({
-        accepted_at: new Date().toISOString(),
-      })
-      .eq("id", typedInvitation.id)
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ full_name: fullName, ...(country ? { country } : {}) })
+      .eq("id", userId)
 
-    return NextResponse.json({
-      success: true,
-      message: "Cuenta creada correctamente",
-    })
-  } catch (error) {
-    console.error("Error in accept-invitation API:", error)
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
+    if (profileError) {
+      console.error("Could not complete invited profile", profileError)
+      await removeCreatedUser()
+      return NextResponse.json({ error: "No pudimos completar la cuenta" }, { status: 500 })
+    }
+
+    const { data: accepted, error: acceptanceError } = await supabaseAdmin.rpc(
+      "accept_invitation",
+      {
+        invitation_token_hash: tokenHash,
+        invited_user_id: userId,
+      }
     )
+
+    if (acceptanceError || !accepted) {
+      console.error("Could not atomically accept invitation", acceptanceError)
+      await removeCreatedUser()
+      return NextResponse.json(
+        { error: "La invitación ya fue usada o venció. Pedí una nueva." },
+        { status: 409 }
+      )
+    }
+
+    return NextResponse.json({ success: true, message: "Cuenta creada correctamente" })
+  } catch (error) {
+    console.error("Unexpected accept-invitation error", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

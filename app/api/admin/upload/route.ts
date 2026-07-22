@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 const BUCKET = "lesson-resources"
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
@@ -14,6 +14,7 @@ const ALLOWED_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const supabase = await createClient()
 
     // Verify admin
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const supabase = await createClient()
 
     // Verify admin

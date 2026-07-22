@@ -33,8 +33,7 @@ async function getStudentConversations(): Promise<StudentConversation[]> {
   const supabase = await createClient()
 
   // Get all students who have sent or received messages
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: conversations, error } = await (supabase.from("direct_messages") as any)
+  const { data: conversations, error } = await supabase.from("direct_messages")
     .select(`
       student_id,
       message,
@@ -57,20 +56,17 @@ async function getStudentConversations(): Promise<StudentConversation[]> {
   // Group by student and get latest message for each
   const studentMap = new Map<string, StudentConversation>()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const msg of conversations as any[]) {
+  for (const msg of conversations) {
     const studentId = msg.student_id
     if (!studentMap.has(studentId)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const student = msg.student as any
+      const student = msg.student
 
       // Count unread messages from this student
       const unreadCount = conversations.filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (m: any) =>
-          m.student_id === studentId &&
-          m.sender_id === studentId &&
-          !m.read_at
+        (message) =>
+          message.student_id === studentId &&
+          message.sender_id === studentId &&
+          !message.read_at
       ).length
 
       studentMap.set(studentId, {

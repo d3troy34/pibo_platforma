@@ -1,47 +1,57 @@
 # Pibo LMS
 
-Plataforma privada de aprendizaje de Pibo. Incluye autenticacion, acceso gratuito y pago a modulos, seguimiento de progreso, mensajeria, anuncios y administracion de contenido.
+Plataforma privada de aprendizaje de Pibo. Incluye acceso gratuito y pago a clases, progreso, mensajería, novedades y administración de contenido.
+
+Los videos no viven en este repositorio: se reproducen desde Bunny.net Stream usando el GUID guardado en cada módulo.
 
 ## Requisitos
 
-- Node.js 20, 22 o 24 o superior, junto con npm. Las versiones 21 y 23 no son compatibles con las herramientas de prueba.
-- Un proyecto Supabase compatible con las tablas y politicas esperadas por la aplicacion.
-- Bunny Stream para reproducir videos.
-- Resend para los correos de registro, recuperacion e invitacion.
+- Node.js 20.9+, 22 o 24+
+- npm
+- Docker Desktop
+- Supabase CLI
+- Una biblioteca de Bunny.net Stream
+- Resend para emails transaccionales
 
-## Preparacion local
+## Desarrollo local
 
-Instala exactamente las versiones del lockfile:
+Instalá las versiones exactas del lockfile:
 
 ```bash
 npm ci
 ```
 
-Configura las variables necesarias en `.env.local` y levanta el servidor:
+Levantá Supabase y aplicá la base desde cero:
+
+```bash
+supabase start
+supabase db reset --local --yes
+```
+
+El entorno local usa puertos `553xx` para no chocar con otros proyectos. Copiá `.env.example` a `.env.local` y completá las credenciales que muestra Supabase. Después:
 
 ```bash
 npm run dev
 ```
 
-La aplicacion queda disponible en `http://localhost:3000`.
+La aplicación queda disponible en `http://localhost:3000`.
 
-## Verificacion
+## Verificación
 
-Ejecuta todas las puertas locales antes de entregar un cambio:
+Antes de entregar cambios:
 
 ```bash
 npm run check
-```
-
-Este comando comprueba tipos, ejecuta las pruebas y corre el linter. Para generar la version publicable, con las variables configuradas:
-
-```bash
+supabase db lint --local --level warning --fail-on warning
+supabase test db --local supabase/tests/database.sql
 npm run build
 ```
 
+Las pruebas de base validan permisos, privacidad entre alumnos, invitaciones de un solo uso, compras repetidas y límites reales de intentos.
+
 ## Variables de entorno
 
-No guardes valores privados en Git. Consulta `.env.example` y configura únicamente los valores del entorno correspondiente.
+No guardes valores privados en Git. La lista vigente está en `.env.example`.
 
 Variables visibles por el navegador:
 
@@ -56,23 +66,23 @@ Variables exclusivas del servidor:
 - `RESEND_API_KEY`
 - `WEBHOOK_SECRET`
 
-`.env.example` también conserva variables de proveedores de pago y de Bunny que el código actual no consume directamente. Confirma el flujo de compra antes de depender de ellas o eliminarlas.
+## Base nueva y migración de clientes
+
+La fuente de verdad es `supabase/migrations/20260722190106_pibo_v2_foundation.sql`. No hay que reconstruir producción copiando SQL histórico ni arrancar con una base vacía si ya existen clientes.
+
+Para pasar a un proyecto remoto nuevo, el orden seguro es:
+
+1. Obtener un respaldo del proyecto anterior, incluidos usuarios de Auth.
+2. Crear el proyecto nuevo y aplicar la migración base.
+3. Importar perfiles, inscripciones, módulos, progreso, mensajes y novedades mediante un script revisado.
+4. Conservar los GUID existentes de Bunny.net; no volver a subir ni recrear los videos.
+5. Migrar usuarios de Auth y comprobar cómo se conservarán las contraseñas y sesiones.
+6. Hacer una prueba con una copia, comparar cantidades y recién después cambiar producción.
+
+El proyecto remoto nuevo todavía no fue creado ni recibió datos. Esto es intencional: primero hace falta acceso al respaldo anterior y confirmar el costo del proyecto nuevo.
 
 ## Servicios externos
 
-- **Supabase**: autenticacion, base de datos, reglas de acceso, archivos y tiempo real.
-- **Bunny Stream**: videos de los modulos.
-- **Resend**: correos transaccionales.
-
-El estado del backend remoto todavía no fue identificado. No asumas que está activo ni que coincide con los archivos SQL del repositorio.
-
-## Base de datos
-
-No ejecutes `supabase/schema.sql` a ciegas sobre un proyecto remoto. El archivo es una referencia historica y puede diferir del estado desplegado.
-
-Antes de aplicar cualquier archivo de `supabase/migrations/`:
-
-1. Confirma el proyecto remoto correcto y crea un respaldo.
-2. Compara su esquema, funciones y reglas de acceso con el repositorio.
-3. Prueba las migraciones sobre una base desechable.
-4. Aplica en remoto sólo los cambios revisados y en el orden acordado.
+- **Supabase**: autenticación, base de datos, reglas de acceso, archivos y tiempo real.
+- **Bunny.net Stream**: videos de las clases.
+- **Resend**: emails de registro, recuperación e invitación.

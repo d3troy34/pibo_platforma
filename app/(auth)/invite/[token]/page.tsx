@@ -1,7 +1,7 @@
+import { createHash } from "crypto"
 import { notFound } from "next/navigation"
 import { RegisterForm } from "@/components/auth/register-form"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import type { Invitation } from "@/types/database"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 
 export const metadata = {
   title: "Aceptar Invitacion",
@@ -9,15 +9,16 @@ export const metadata = {
 }
 
 interface InvitePageProps {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
 export default async function InvitePage({ params }: InvitePageProps) {
-  // Use admin client to bypass RLS for invitation verification
-  const { data: invitation, error } = await supabaseAdmin
+  const { token } = await params
+  const tokenHash = createHash("sha256").update(token).digest("hex")
+  const { data: invitation, error } = await getSupabaseAdmin()
     .from("invitations")
-    .select("*")
-    .eq("token", params.token)
+    .select("email")
+    .eq("token_hash", tokenHash)
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())
     .single()
@@ -25,8 +26,6 @@ export default async function InvitePage({ params }: InvitePageProps) {
   if (error || !invitation) {
     notFound()
   }
-
-  const typedInvitation = invitation as Invitation
 
   return (
     <div className="space-y-4">
@@ -36,8 +35,8 @@ export default async function InvitePage({ params }: InvitePageProps) {
         </p>
       </div>
       <RegisterForm
-        invitationEmail={typedInvitation.email}
-        invitationToken={params.token}
+        invitationEmail={invitation.email}
+        invitationToken={token}
       />
     </div>
   )

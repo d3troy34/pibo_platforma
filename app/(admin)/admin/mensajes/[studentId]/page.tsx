@@ -14,11 +14,10 @@ async function getMessages(studentId: string) {
   try {
     const supabase = await createClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from("direct_messages") as any)
+    const { data, error } = await supabase.from("direct_messages")
       .select(`
         *,
-        sender:profiles!sender_id(
+        sender:profile_directory!sender_id(
           id,
           full_name,
           avatar_url,
@@ -33,7 +32,7 @@ async function getMessages(studentId: string) {
       return []
     }
 
-    return (data as DirectMessageWithSender[]) || []
+    return (data || []) as DirectMessageWithSender[]
   } catch (error) {
     console.error("Error fetching messages:", error)
     return []
@@ -60,7 +59,7 @@ async function getStudentProfile(studentId: string) {
 export default async function AdminStudentChatPage({
   params,
 }: {
-  params: { studentId: string }
+  params: Promise<{ studentId: string }>
 }) {
   const supabase = await createClient()
 
@@ -83,9 +82,11 @@ export default async function AdminStudentChatPage({
     redirect("/curso")
   }
 
-  const studentId = params.studentId
-  const student = await getStudentProfile(studentId)
-  const messages = await getMessages(studentId)
+  const { studentId } = await params
+  const [student, messages] = await Promise.all([
+    getStudentProfile(studentId),
+    getMessages(studentId),
+  ])
 
   if (!student) {
     redirect("/admin/mensajes")

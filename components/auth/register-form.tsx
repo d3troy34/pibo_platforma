@@ -31,7 +31,11 @@ import {
 const registerSchema = z.object({
   fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email invalido"),
-  password: z.string().min(6, "La contrasena debe tener al menos 6 caracteres"),
+  password: z
+    .string()
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .regex(/[A-Za-z]/, "La contraseña debe incluir una letra")
+    .regex(/\d/, "La contraseña debe incluir un número"),
   confirmPassword: z.string(),
   country: z.string().min(1, "Selecciona tu pais"),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -97,6 +101,7 @@ export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormP
             token: invitationToken,
             fullName: data.fullName,
             password: data.password,
+            country: data.country,
           }),
         })
 

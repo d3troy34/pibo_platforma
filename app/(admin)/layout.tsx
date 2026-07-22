@@ -28,10 +28,12 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-paper">
       <AdminSidebar user={profile} />
-      <main className="flex-1 p-6 lg:p-8 ml-0 lg:ml-64">
-        {children}
+      <main className="min-w-0 flex-1 overflow-x-hidden">
+        <div className="mx-auto w-full max-w-[1500px] px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
+          {children}
+        </div>
       </main>
     </div>
   )

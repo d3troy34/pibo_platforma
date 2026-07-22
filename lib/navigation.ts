@@ -7,6 +7,7 @@ const protectedRoutes = [
   "/mensajes",
   "/anuncios",
   "/catalogo",
+  "/onboarding",
   "/update-password",
 ]
 const adminRoutes = ["/admin"]

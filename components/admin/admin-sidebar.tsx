@@ -1,28 +1,30 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname, useRouter } from "next/navigation"
 import {
-  LayoutDashboard,
-  Users,
+  Bell,
   BookOpen,
+  LayoutDashboard,
   LogOut,
   Menu,
-  X,
-  UserPlus,
   MessageSquare,
-  Megaphone,
   Moon,
+  Route,
   Sun,
+  UserPlus,
+  Users,
+  X,
 } from "lucide-react"
-import { toast } from "sonner"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
+import { toast } from "sonner"
 
-import { Button } from "@/components/ui/button"
+import { BrandLogo } from "@/components/brand/brand-logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
 
 interface AdminSidebarProps {
   user: {
@@ -33,161 +35,121 @@ interface AdminSidebarProps {
 }
 
 const navItems = [
-  {
-    label: "Dashboard",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Estudiantes",
-    href: "/admin/estudiantes",
-    icon: Users,
-  },
-  {
-    label: "Invitar",
-    href: "/admin/estudiantes/invitar",
-    icon: UserPlus,
-  },
-  {
-    label: "Contenido",
-    href: "/admin/contenido",
-    icon: BookOpen,
-  },
-  {
-    label: "Mensajes",
-    href: "/admin/mensajes",
-    icon: MessageSquare,
-  },
-  {
-    label: "Anuncios",
-    href: "/admin/anuncios",
-    icon: Megaphone,
-  },
-]
+  { label: "Resumen", href: "/admin", icon: LayoutDashboard },
+  { label: "Estudiantes", href: "/admin/estudiantes", icon: Users },
+  { label: "Invitar", href: "/admin/estudiantes/invitar", icon: UserPlus },
+  { label: "Contenido", href: "/admin/contenido", icon: BookOpen },
+  { label: "Mensajes", href: "/admin/mensajes", icon: MessageSquare },
+  { label: "Novedades", href: "/admin/anuncios", icon: Bell },
+] as const
+
+function getInitials(name?: string | null): string {
+  if (!name) return "AD"
+  return name.split(" ").map((part) => part[0]).join("").toUpperCase().slice(0, 2)
+}
 
 export function AdminSidebar({ user }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { theme, resolvedTheme, setTheme } = useTheme()
-  const supabase = createClient()
+  const { resolvedTheme, setTheme } = useTheme()
 
-  const currentTheme = resolvedTheme || theme
-  const isDark = currentTheme === "dark"
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    toast.success("Sesión cerrada")
+  const logout = async () => {
+    const { error } = await createClient().auth.signOut()
+    if (error) {
+      toast.error("No pudimos cerrar la sesión")
+      return
+    }
     router.push("/login")
     router.refresh()
   }
 
-  const getInitials = (name: string | null | undefined) => {
-    if (!name) return "A"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
+  const sidebar = (
+    <aside className="flex h-full w-[17rem] flex-col border-r border-ink/10 bg-ink text-white">
+      <div className="border-b border-white/10 px-7 py-7">
+        <BrandLogo href="/admin" className="text-[2.7rem] text-white" />
+        <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/40">Administración</p>
+      </div>
+
+      <nav className="flex-1 space-y-1 px-4 py-5" aria-label="Administración">
+        {navItems.map((item) => {
+          const active = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`))
+          const Icon = item.icon
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setIsOpen(false)}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
+                active ? "bg-pink text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+              )}
+            >
+              <Icon className="h-[1.1rem] w-[1.1rem]" /> {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className="border-t border-white/10 p-4">
+        <Link href="/curso" className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+          <Route className="h-4 w-4" /> Ver experiencia alumno
+        </Link>
+
+        <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-3">
+          <Avatar className="h-10 w-10 border border-white/10">
+            <AvatarImage src={user?.avatar_url || undefined} alt="" />
+            <AvatarFallback className="bg-indigo text-xs text-white">{getInitials(user?.full_name)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{user?.full_name || "Admin Pibo"}</p>
+            <p className="truncate text-xs text-white/40">{user?.email}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex-1 justify-start text-white/60 hover:bg-white/10 hover:text-white"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          >
+            {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+            {resolvedTheme === "dark" ? "Claro" : "Oscuro"}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-white/60 hover:bg-white/10 hover:text-pink" onClick={logout} aria-label="Cerrar sesión">
+            <LogOut />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  )
 
   return (
     <>
-      {/* Mobile menu button */}
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={() => setIsOpen(!isOpen)}
+        className="fixed left-4 top-4 z-[60] bg-white lg:hidden"
+        onClick={() => setIsOpen((open) => !open)}
         aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
         aria-expanded={isOpen}
       >
-        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {isOpen ? <X /> : <Menu />}
       </Button>
 
-      {/* Overlay */}
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
+        <button type="button" className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm lg:hidden" onClick={() => setIsOpen(false)} aria-label="Cerrar menú" />
       )}
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-secondary/50 border-r border-border transform transition-transform duration-200 lg:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="p-6 border-b border-border">
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Pibo" width={80} height={32} />
-              <span className="text-sm font-medium text-muted-foreground">Admin</span>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== "/admin" && pathname.startsWith(item.href))
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </Link>
-              )
-            })}
-          </nav>
-
-          {/* User section */}
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center gap-3 mb-4">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatar_url || undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary">
-                  {getInitials(user?.full_name)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {user?.full_name || "Admin"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full mb-2"
-            >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {isDark ? "Modo claro" : "Modo oscuro"}
-            </button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              Cerrar Sesión
-            </Button>
-          </div>
-        </div>
-      </aside>
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {sidebar}
+      </div>
     </>
   )
 }

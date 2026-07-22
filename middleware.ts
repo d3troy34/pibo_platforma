@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { classifyRouteAccess } from "@/lib/navigation"
@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
           response = NextResponse.next({
@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
   if (user && (isProtectedRoute || isAdminRoute || isAuthRoute)) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, onboarding_completed_at")
       .eq("id", user.id)
       .single()
 
@@ -65,7 +65,9 @@ export async function middleware(request: NextRequest) {
       if (profile?.role === "admin") {
         return NextResponse.redirect(new URL("/admin", request.url))
       }
-      return NextResponse.redirect(new URL("/curso", request.url))
+      return NextResponse.redirect(
+        new URL(profile?.onboarding_completed_at ? "/curso" : "/onboarding", request.url)
+      )
     }
   }
 

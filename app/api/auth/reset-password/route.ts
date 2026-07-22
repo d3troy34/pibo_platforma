@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { resend } from "@/lib/resend/client"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
+import { getResend } from "@/lib/resend/client"
 import { resetPasswordEmail } from "@/lib/email-templates"
 import { checkRateLimit } from "@/lib/rate-limit"
 
@@ -12,8 +12,9 @@ function normalizeEmail(value: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    if (!checkRateLimit(`auth_reset_password:${ip}`, 10, 60 * 1000)) {
+    if (!(await checkRateLimit(`auth_reset_password:${ip}`, 10, 60 * 1000))) {
       return NextResponse.json(
         { error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." },
         { status: 429 }
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
       tokenHash
     )}&type=${encodeURIComponent(type)}&next=${encodeURIComponent("/update-password")}`
 
-    const { error: emailError } = await resend.emails.send({
+    const { error: emailError } = await getResend().emails.send({
       from: "Mipibo <no-reply@mipibo.com>",
       to: email,
       subject: "Restablecer contrasena - Mipibo",

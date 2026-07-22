@@ -22,12 +22,24 @@ const moduleSchema = z.object({
   title: z.string().min(1, "El titulo es requerido"),
   description: z.string().optional(),
   bunny_video_guid: z.string().optional(),
-  duration_seconds: z.coerce.number().min(0).optional(),
-  order_index: z.coerce.number().min(0, "El orden debe ser mayor o igual a 0"),
+  duration_seconds: z.number().min(0),
+  order_index: z.number().min(0, "El orden debe ser mayor o igual a 0"),
   is_published: z.boolean(),
 })
 
 type ModuleForm = z.infer<typeof moduleSchema>
+
+function createModuleSlug(title: string): string {
+  const base = title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "modulo"
+
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`
+}
 
 export default function NuevoModuloPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -41,8 +53,7 @@ export default function NuevoModuloPage() {
     watch,
     formState: { errors },
   } = useForm<ModuleForm>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(moduleSchema) as any,
+    resolver: zodResolver(moduleSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -58,9 +69,9 @@ export default function NuevoModuloPage() {
   const onSubmit = async (data: ModuleForm) => {
     setIsLoading(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from("modules") as any).insert({
+      const { error } = await supabase.from("modules").insert({
         title: data.title,
+        slug: createModuleSlug(data.title),
         description: data.description || null,
         bunny_video_guid: data.bunny_video_guid || null,
         duration_seconds: data.duration_seconds || 0,
@@ -149,7 +160,7 @@ export default function NuevoModuloPage() {
                   id="duration_seconds"
                   type="number"
                   min={0}
-                  {...register("duration_seconds")}
+                  {...register("duration_seconds", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-2">
@@ -158,7 +169,7 @@ export default function NuevoModuloPage() {
                   id="order_index"
                   type="number"
                   min={0}
-                  {...register("order_index")}
+                  {...register("order_index", { valueAsNumber: true })}
                 />
                 {errors.order_index && (
                   <p className="text-sm text-destructive">{errors.order_index.message}</p>

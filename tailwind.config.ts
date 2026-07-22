@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss"
+import tailwindcssAnimate from "tailwindcss-animate"
 
 const config: Config = {
   darkMode: ["class"],
@@ -17,6 +18,10 @@ const config: Config = {
     },
     extend: {
       colors: {
+        paper: "hsl(var(--paper))",
+        ink: "hsl(var(--ink))",
+        indigo: "hsl(var(--indigo))",
+        pink: "hsl(var(--pink))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -60,7 +65,8 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-geist)", "Arial", "sans-serif"],
+        display: ["Georgia", "Times New Roman", "serif"],
       },
       keyframes: {
         "accordion-down": {
@@ -92,17 +98,17 @@ const config: Config = {
         "slide-in-right": "slide-in-right 0.3s ease-out",
       },
       backgroundImage: {
-        "gradient-accent": "linear-gradient(to right, #60A5FA, #22D3EE)",
-        "gradient-accent-hover": "linear-gradient(to right, #93C5FD, #67E8F9)",
+        "gradient-accent": "linear-gradient(110deg, #3437d9, #4b4acb)",
+        "gradient-accent-hover": "linear-gradient(110deg, #2d30c4, #3f3fb7)",
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
       },
       boxShadow: {
-        glow: "0 0 20px rgba(125, 211, 252, 0.3)",
-        "glow-lg": "0 0 30px rgba(125, 211, 252, 0.4)",
+        glow: "0 18px 50px rgba(52, 55, 217, 0.12)",
+        "glow-lg": "0 24px 70px rgba(52, 55, 217, 0.16)",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 }
 
 export default config

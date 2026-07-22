@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import type { DirectMessageWithSender } from "@/types/database"
+import type { DirectMessage, DirectMessageWithSender } from "@/types/database"
 
 interface MessageListProps {
   messages: DirectMessageWithSender[]
@@ -33,6 +33,21 @@ export function MessageList({ messages: initialMessages, currentUserId, studentI
     setMessages(initialMessages)
   }, [initialMessages])
 
+  // Show a locally sent message immediately. Realtime may arrive later and is
+  // deduplicated by id, so the UI never depends on network propagation speed.
+  useEffect(() => {
+    const handleLocalMessage = (event: Event) => {
+      const newMessage = (event as CustomEvent<DirectMessageWithSender>).detail
+      setMessages((current) => {
+        if (current.some((message) => message.id === newMessage.id)) return current
+        return [...current, newMessage]
+      })
+    }
+
+    window.addEventListener(`message-created-${studentId}`, handleLocalMessage)
+    return () => window.removeEventListener(`message-created-${studentId}`, handleLocalMessage)
+  }, [studentId])
+
   // Subscribe to real-time INSERT events on direct_messages
   useEffect(() => {
     const supabase = createClient()
@@ -47,10 +62,10 @@ export function MessageList({ messages: initialMessages, currentUserId, studentI
           table: 'direct_messages',
           filter: `student_id=eq.${studentId}`,
         },
-        async (payload) => {
-          // Fetch sender profile for the new message
+        async (payload: { new: DirectMessage }) => {
+          // Read only the chat-safe directory, never the private profile table.
           const { data: sender } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('id, full_name, avatar_url, role')
             .eq('id', payload.new.sender_id)
             .single()
@@ -86,16 +101,17 @@ export function MessageList({ messages: initialMessages, currentUserId, studentI
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <p className="text-muted-foreground">
-          No hay mensajes aún. ¡Envía el primero!
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <p className="font-display text-2xl text-ink">Abrí la conversación.</p>
+        <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+          No hay mensajes todavía. Contanos dónde estás trabado y te ayudamos a avanzar.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col p-4">
+    <div className="flex flex-col p-5 sm:p-7">
       {messages.map((msg, index) => {
         const isOwnMessage = msg.sender_id === currentUserId
         const prevMsg = index > 0 ? messages[index - 1] : null
@@ -143,8 +159,8 @@ export function MessageList({ messages: initialMessages, currentUserId, studentI
                 className={cn(
                   "px-3 py-2 text-sm",
                   isOwnMessage
-                    ? "bg-primary text-white rounded-2xl rounded-br-sm"
-                    : "bg-secondary rounded-2xl rounded-bl-sm"
+                    ? "rounded-2xl rounded-br-sm bg-indigo text-white"
+                    : "rounded-2xl rounded-bl-sm bg-paper text-ink"
                 )}
               >
                 <p className="whitespace-pre-wrap break-words">{msg.message}</p>
