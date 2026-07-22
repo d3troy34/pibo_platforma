@@ -8,14 +8,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="grid min-h-screen bg-paper lg:grid-cols-[1.08fr_0.92fr]">
       <section className="relative hidden min-h-screen overflow-hidden border-r border-ink/10 lg:block">
         <Image
-          src="/pibo-login-hero.png"
-          alt="Estudiante frente al Congreso de la Nación Argentina"
+          src="/brand/pibo-auth-background.png"
+          alt=""
           fill
           priority
           sizes="58vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-paper/92 via-paper/25 to-ink/35" />
+        <div className="absolute inset-0 bg-gradient-to-b from-paper/70 via-paper/10 to-indigo/30" />
         <div className="absolute left-10 top-10 h-72 w-[78%] rounded-tl-[2rem] border-l-4 border-t-4 border-indigo" />
         <div className="absolute bottom-10 left-10 h-[42%] w-[72%] rounded-bl-[2rem] border-b-4 border-l-4 border-pink" />
 
@@ -32,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <section className="flex min-h-screen flex-col px-6 py-8 sm:px-10 lg:px-14 xl:px-20">
         <header className="flex items-center justify-between">
-          <BrandLogo href="/" className="text-[2.8rem]" />
+          <BrandLogo href="/" priority className="text-[2.8rem]" />
           <span className="hidden items-center gap-2 text-xs font-medium text-muted-foreground sm:flex">
             <ShieldCheck className="h-4 w-4 text-indigo" />
             Acceso protegido

@@ -67,7 +67,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   const sidebar = (
     <aside className="flex h-full w-[17rem] flex-col border-r border-ink/10 bg-ink text-white">
       <div className="border-b border-white/10 px-7 py-7">
-        <BrandLogo href="/admin" className="text-[2.7rem] text-white" />
+        <BrandLogo href="/admin" onDark className="text-[2.7rem]" />
         <p className="mt-1 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white/40">Administración</p>
       </div>
 

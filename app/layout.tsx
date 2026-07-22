@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   keywords: ["pibo", "plataforma educativa", "estudiar en argentina", "masterclass", "universidad argentina", "visa estudiante", "trámites migratorios", "cursos online", "UBA extranjeros"],
   authors: [{ name: "Pibo" }],
   icons: {
-    icon: "/favicon.png",
+    icon: "/brand/pibo-mark.png",
+    apple: "/brand/pibo-mark.png",
   },
   robots: {
     index: true,
