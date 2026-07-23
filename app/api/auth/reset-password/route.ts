@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { getResend } from "@/lib/resend/client"
-import { resetPasswordEmail } from "@/lib/email-templates"
+import {
+  resetPasswordEmail,
+  resetPasswordEmailText,
+} from "@/lib/email-templates"
 import { checkRateLimit, getRateLimitHttpError } from "@/lib/rate-limit"
 
 function normalizeEmail(value: unknown): string | null {
@@ -60,16 +63,17 @@ export async function POST(request: NextRequest) {
     )}&type=${encodeURIComponent(type)}&next=${encodeURIComponent("/update-password")}`
 
     const { error: emailError } = await getResend().emails.send({
-      from: "Mipibo <no-reply@mipibo.com>",
+      from: process.env.RESEND_FROM_EMAIL?.trim() || "Pibo <no-reply@mipibo.com>",
       to: email,
-      subject: "Restablecer contrasena - Mipibo",
-      html: resetPasswordEmail(resetUrl),
+      subject: "Restablecé tu contraseña | Pibo",
+      html: resetPasswordEmail(resetUrl, appUrl),
+      text: resetPasswordEmailText(resetUrl),
     })
 
     if (emailError) {
       console.error("Error sending reset password email:", emailError)
       return NextResponse.json(
-        { error: "No se pudo enviar el email. Intenta de nuevo." },
+        { error: "No se pudo enviar el email. Intentá de nuevo." },
         { status: 502 }
       )
     }

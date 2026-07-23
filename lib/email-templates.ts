@@ -1,8 +1,6 @@
 ﻿/**
  * Centralized email templates for the Mipibo platform.
  * All HTML email content is defined here to keep API routes clean.
- *
- * NOTE: Prefer ASCII in templates to avoid encoding issues across email clients.
  */
 
 function escapeHtml(value: string): string {
@@ -13,6 +11,22 @@ function escapeHtml(value: string): string {
     "'": "&#39;",
     '"': "&quot;",
   })[character] || character)
+}
+
+const DEFAULT_APP_URL = "https://www.mipibo.com"
+
+function brandAssetUrl(path: string, appUrl?: string): string {
+  const baseUrl = appUrl?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || DEFAULT_APP_URL
+
+  try {
+    const url = new URL(baseUrl)
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return new URL(path, DEFAULT_APP_URL).toString()
+    }
+    return new URL(path, url).toString()
+  } catch {
+    return new URL(path, DEFAULT_APP_URL).toString()
+  }
 }
 
 function purchaseEmailShell(preview: string, content: string): string {
@@ -115,40 +129,167 @@ export function confirmAccountEmail(fullName: string, confirmUrl: string): strin
 </html>`
 }
 
-export function resetPasswordEmail(resetUrl: string): string {
+export function resetPasswordEmail(resetUrl: string, appUrl?: string): string {
+  const safeResetUrl = escapeHtml(resetUrl)
+  const safeWordmarkUrl = escapeHtml(
+    brandAssetUrl("/brand/pibo-wordmark-email.png", appUrl)
+  )
+  const safeJourneyUrl = escapeHtml(
+    brandAssetUrl("/brand/pibo-email-journey.jpg", appUrl)
+  )
+  const preview = "Usá este enlace seguro para crear una contraseña nueva."
+
   return `<!DOCTYPE html>
-<html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <title>Restablecé tu contraseña | Pibo</title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+    <style>
+      :root { color-scheme: light only; supported-color-schemes: light; }
+      body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+      table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+      img { -ms-interpolation-mode: bicubic; border: 0; display: block; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+      table { border-collapse: collapse !important; }
+      a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+
+      @media only screen and (max-width: 620px) {
+        .email-shell { width: 100% !important; }
+        .email-gutter { padding-left: 24px !important; padding-right: 24px !important; }
+        .email-heading { font-size: 34px !important; line-height: 38px !important; }
+        .email-tagline { display: none !important; }
+        .email-button { display: block !important; text-align: center !important; }
+      }
+    </style>
   </head>
-  <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
-      <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-        Restablecer contrasena
-      </h1>
-
-      <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
-        Haz clic en el boton de abajo para elegir una nueva contrasena.
-      </p>
-
-      <a href="${resetUrl}"
-         style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
-        Cambiar contrasena
-      </a>
-
-      <p style="margin-top: 24px; margin-bottom: 16px; line-height: 1.6; color: #94A3B8; font-size: 14px;">
-        Si no solicitaste este cambio, puedes ignorar este email.
-      </p>
-
-      <hr style="border: none; border-top: 1px solid #334155; margin: 32px 0;">
-
-      <p style="font-size: 12px; color: #64748B;">
-        (c) ${new Date().getFullYear()} Mipibo. Todos los derechos reservados.
-      </p>
+  <body style="width: 100% !important; margin: 0; padding: 0; background-color: #F4F0E8; color: #171717; font-family: Arial, Helvetica, sans-serif;">
+    <div style="display: none; max-height: 0; max-width: 0; overflow: hidden; opacity: 0; color: transparent; mso-hide: all;">
+      ${preview}
+      &#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
     </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: #F4F0E8;">
+      <tr>
+        <td align="center" style="padding: 32px 16px;">
+          <table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 600px; max-width: 600px; overflow: hidden; background-color: #FFFCF7; border: 1px solid #D8D0C2; border-radius: 24px;">
+            <tr>
+              <td class="email-gutter" style="padding: 20px 32px; border-bottom: 1px solid #E8E0D4;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="left" valign="middle">
+                      <img src="${safeWordmarkUrl}" width="125" alt="Pibo" style="width: 125px; max-width: 125px;">
+                    </td>
+                    <td class="email-tagline" align="right" valign="middle" style="color: #6657D9; font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;">
+                      Tu camino a Argentina
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <img src="${safeJourneyUrl}" width="600" alt="" role="presentation" style="width: 100%; max-width: 600px;">
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-gutter" style="padding: 38px 40px 34px;">
+                <p style="margin: 0 0 12px; color: #6657D9; font-size: 12px; font-weight: 700; letter-spacing: 1.8px; line-height: 18px; text-transform: uppercase;">
+                  Seguridad de tu cuenta
+                </p>
+
+                <h1 class="email-heading" style="margin: 0 0 20px; color: #171717; font-size: 40px; font-weight: 700; letter-spacing: -1.6px; line-height: 44px;">
+                  Creá una contraseña nueva.
+                </h1>
+
+                <p style="margin: 0 0 14px; color: #514B44; font-size: 17px; line-height: 28px;">
+                  Hola,
+                </p>
+
+                <p style="margin: 0 0 26px; color: #514B44; font-size: 17px; line-height: 28px;">
+                  Recibimos una solicitud para restablecer la contraseña de tu cuenta de Pibo. Para continuar, usá el siguiente botón:
+                </p>
+
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="left" style="border-radius: 999px; background-color: #3437D9;">
+                      <!--[if mso]>
+                      <v:roundrect href="${safeResetUrl}" style="height: 52px; v-text-anchor: middle; width: 258px;" arcsize="50%" strokecolor="#3437D9" fillcolor="#3437D9">
+                        <w:anchorlock/>
+                        <center style="color: #FFFFFF; font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 700;">
+                          Crear contraseña nueva
+                        </center>
+                      </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-->
+                      <a class="email-button" href="${safeResetUrl}" style="display: inline-block; padding: 16px 24px; border: 1px solid #3437D9; border-radius: 999px; background-color: #3437D9; color: #FFFFFF; font-size: 16px; font-weight: 700; line-height: 18px; text-decoration: none;">
+                        Crear contraseña nueva
+                      </a>
+                      <!--<![endif]-->
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 30px;">
+                  <tr>
+                    <td style="padding: 18px 20px; border-left: 3px solid #F51881; background-color: #F8F4EC;">
+                      <p style="margin: 0; color: #514B44; font-size: 14px; line-height: 22px;">
+                        Si no pediste este cambio, no tenés que hacer nada. Tu contraseña seguirá siendo la misma.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin: 28px 0 0; color: #756E65; font-size: 12px; line-height: 19px;">
+                  ¿El botón no funciona?
+                  <a href="${safeResetUrl}" style="color: #3437D9; font-weight: 700; text-decoration: underline;">Abrí el enlace seguro.</a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="email-gutter" style="padding: 22px 32px; border-top: 1px solid #E8E0D4; background-color: #F8F4EC;">
+                <p style="margin: 0 0 4px; color: #514B44; font-size: 12px; font-weight: 700; line-height: 18px;">
+                  Pibo · Tu camino a Argentina
+                </p>
+                <p style="margin: 0; color: #756E65; font-size: 11px; line-height: 17px;">
+                  © ${new Date().getFullYear()} Pibo. Este es un correo automático relacionado con la seguridad de tu cuenta.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`
+}
+
+export function resetPasswordEmailText(resetUrl: string): string {
+  return `Creá una contraseña nueva
+
+Hola,
+
+Recibimos una solicitud para restablecer la contraseña de tu cuenta de Pibo.
+
+Para crear una contraseña nueva, abrí este enlace seguro:
+${resetUrl}
+
+Si no pediste este cambio, no tenés que hacer nada. Tu contraseña seguirá siendo la misma.
+
+Pibo · Tu camino a Argentina`
 }
 
 export function welcomeEmail(fullName: string, email: string, resetUrl: string): string {
