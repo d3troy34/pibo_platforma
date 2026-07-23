@@ -69,18 +69,18 @@ Variables exclusivas del servidor:
 
 ## Base nueva y migración de clientes
 
-La fuente de verdad es `supabase/migrations/20260722190106_pibo_v2_foundation.sql`. No hay que reconstruir producción copiando SQL histórico ni arrancar con una base vacía si ya existen clientes.
+La fuente de verdad es la carpeta `supabase/migrations`. Sus versiones coinciden con el historial remoto; no hay que reconstruir producción copiando SQL histórico ni renombrarlas sin actualizar ambos lados.
 
 Para pasar a un proyecto remoto nuevo, el orden seguro es:
 
 1. Obtener un respaldo del proyecto anterior, incluidos usuarios de Auth.
-2. Crear el proyecto nuevo y aplicar la migración base.
+2. Crear el proyecto nuevo y aplicar las migraciones.
 3. Importar perfiles, inscripciones, módulos, progreso, mensajes y novedades mediante un script revisado.
 4. Conservar los GUID existentes de Bunny.net; no volver a subir ni recrear los videos.
 5. Migrar usuarios de Auth y comprobar cómo se conservarán las contraseñas y sesiones.
 6. Hacer una prueba con una copia, comparar cantidades y recién después cambiar producción.
 
-El proyecto remoto nuevo todavía no fue creado ni recibió datos. Esto es intencional: primero hace falta acceso al respaldo anterior y confirmar el costo del proyecto nuevo.
+El proyecto `pibo-lms-production` (`hlswnlsxseyrnnjwjyix`) ya existe en São Paulo y tiene todas las migraciones aplicadas. Sigue vacío: no se debe apuntar producción al proyecto nuevo hasta importar y comprobar los clientes existentes, o definir explícitamente un plan de recuperación si el respaldo anterior no está disponible.
 
 ## Servicios externos
 
