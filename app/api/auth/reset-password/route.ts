@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { getResend } from "@/lib/resend/client"
 import { resetPasswordEmail } from "@/lib/email-templates"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { checkRateLimit, getRateLimitHttpError } from "@/lib/rate-limit"
 
 function normalizeEmail(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -12,12 +12,18 @@ function normalizeEmail(value: unknown): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseAdmin = getSupabaseAdmin()
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
-    if (!(await checkRateLimit(`auth_reset_password:${ip}`, 10, 60 * 1000))) {
+    const rateLimitError = getRateLimitHttpError(
+      await checkRateLimit(`auth_reset_password:${ip}`, 10, 60 * 1000),
+      "Demasiadas solicitudes. Intentá de nuevo en un minuto."
+    )
+    if (rateLimitError) {
       return NextResponse.json(
-        { error: "Demasiadas solicitudes. Intenta de nuevo en un minuto." },
-        { status: 429 }
+        { error: rateLimitError.error },
+        {
+          status: rateLimitError.status,
+          headers: { "Retry-After": rateLimitError.retryAfter },
+        }
       )
     }
 
@@ -29,6 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
+    const supabaseAdmin = getSupabaseAdmin()
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",

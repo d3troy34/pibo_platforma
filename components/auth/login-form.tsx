@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { Button } from "@/components/ui/button"
+import { GoogleAuthButton } from "@/components/auth/google-auth-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getSafeInternalPath } from "@/lib/navigation"
@@ -30,6 +31,13 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const supabase = createClient()
   const redirectTo = getSafeInternalPath(searchParams.get("redirect"), "/curso")
+  const authError = searchParams.get("error")
+  const authErrorMessage =
+    authError === "oauth"
+      ? "No pudimos completar el acceso con Google. Intentá de nuevo."
+      : authError === "auth"
+        ? "El enlace de acceso venció o ya fue utilizado."
+        : null
 
   const {
     register,
@@ -92,6 +100,25 @@ export function LoginForm() {
         <p className="text-base leading-relaxed text-muted-foreground">
           Entrá para seguir exactamente por donde dejaste.
         </p>
+      </div>
+
+      {authErrorMessage && (
+        <div
+          role="alert"
+          className="mb-6 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          {authErrorMessage}
+        </div>
+      )}
+
+      <GoogleAuthButton redirectTo={redirectTo} disabled={isLoading} />
+
+      <div className="my-6 flex items-center gap-3" aria-hidden="true">
+        <span className="h-px flex-1 bg-ink/10" />
+        <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          o con email
+        </span>
+        <span className="h-px flex-1 bg-ink/10" />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

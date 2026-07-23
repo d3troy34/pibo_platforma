@@ -9,6 +9,7 @@ import { z } from "zod"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
+import { GoogleAuthButton } from "@/components/auth/google-auth-button"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { getSafeInternalPath } from "@/lib/navigation"
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -70,7 +72,7 @@ export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormP
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
 
-  const redirectTo = searchParams.get("redirect") || "/curso"
+  const redirectTo = getSafeInternalPath(searchParams.get("redirect"), "/curso")
 
   const {
     register,
@@ -159,6 +161,19 @@ export function RegisterForm({ invitationEmail, invitationToken }: RegisterFormP
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">
+          {!invitationToken && (
+            <>
+              <GoogleAuthButton redirectTo={redirectTo} disabled={isLoading} />
+              <div className="flex items-center gap-3 py-1" aria-hidden="true">
+                <span className="h-px flex-1 bg-ink/10" />
+                <span className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  o con email
+                </span>
+                <span className="h-px flex-1 bg-ink/10" />
+              </div>
+            </>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="fullName">Nombre Completo</Label>
             <Input

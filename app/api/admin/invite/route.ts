@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "crypto"
 import { NextRequest, NextResponse } from "next/server"
 
 import { invitationEmail } from "@/lib/email-templates"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { checkRateLimit, getRateLimitHttpError } from "@/lib/rate-limit"
 import { getResend } from "@/lib/resend/client"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -45,10 +45,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }
 
-    if (!(await checkRateLimit(`invite:${adminId}`, 10, 60 * 1000))) {
+    const rateLimitError = getRateLimitHttpError(
+      await checkRateLimit(`invite:${adminId}`, 10, 60 * 1000),
+      "Demasiadas solicitudes. Esperá un momento."
+    )
+    if (rateLimitError) {
       return NextResponse.json(
-        { error: "Demasiadas solicitudes. Esperá un momento." },
-        { status: 429 }
+        { error: rateLimitError.error },
+        {
+          status: rateLimitError.status,
+          headers: { "Retry-After": rateLimitError.retryAfter },
+        }
       )
     }
 
