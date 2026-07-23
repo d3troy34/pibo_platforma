@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(55);
+select plan(68);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'profile_directory', 'chat-safe profile directory exists');
@@ -27,6 +27,84 @@ select ok(
       )
   ),
   'RLS is enabled on every public application table'
+);
+
+select ok(
+  (
+    select bool_and(class.relrowsecurity)
+    from pg_class as class
+    join pg_namespace as namespace on namespace.oid = class.relnamespace
+    where namespace.nspname = 'private'
+      and class.relname in ('purchase_events', 'api_rate_limits')
+  ),
+  'RLS is enabled on every private application table'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_indexes
+    where schemaname in ('public', 'private')
+      and indexname in (
+        'purchase_events_user_id_idx',
+        'announcements_created_by_idx',
+        'direct_messages_sender_id_idx',
+        'invitations_accepted_by_idx',
+        'invitations_invited_by_idx',
+        'modules_created_by_idx'
+      )
+  ),
+  6::bigint,
+  'foreign-key columns have supporting indexes'
+);
+
+select ok(
+  not (
+    select procedure.prosecdef
+    from pg_proc as procedure
+    where procedure.oid = 'public.get_unread_message_count()'::regprocedure
+  ),
+  'unread count runs with the caller permissions'
+);
+select ok(
+  not (
+    select procedure.prosecdef
+    from pg_proc as procedure
+    where procedure.oid = 'public.mark_message_read(uuid)'::regprocedure
+  ),
+  'mark message read runs with the caller permissions'
+);
+select ok(
+  (
+    select procedure.prosecdef
+    from pg_proc as procedure
+    where procedure.oid = 'public.get_course_modules_outline()'::regprocedure
+  ),
+  'course outline keeps its intentional sanitized privileged read'
+);
+select ok(
+  has_column_privilege('authenticated', 'public.direct_messages', 'read_at', 'UPDATE'),
+  'authenticated users can update only the message read marker'
+);
+select ok(
+  has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated policies can resolve the private authorization helpers'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'private.current_user_is_admin()',
+    'EXECUTE'
+  ),
+  'authenticated policies can execute the admin authorization helper'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'private.handle_new_user()',
+    'EXECUTE'
+  ),
+  'authenticated users cannot execute private trigger functions'
 );
 
 select is(
@@ -511,6 +589,19 @@ select set_config(
   true
 );
 select is((select count(*) from public.direct_messages), 1::bigint, 'message owner can read the conversation');
+select is(public.get_unread_message_count(), 1, 'message owner sees the unread count');
+select lives_ok(
+  $$select public.mark_message_read('00000000-0000-0000-0000-000000000000')$$,
+  'marking an unknown message remains harmless'
+);
+select lives_ok(
+  format(
+    'select public.mark_message_read(%L)',
+    (select id from public.direct_messages limit 1)
+  ),
+  'message owner can mark an incoming message as read'
+);
+select is(public.get_unread_message_count(), 0, 'marked message leaves the unread count');
 
 select throws_ok(
   $$update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-000000000001'$$,
