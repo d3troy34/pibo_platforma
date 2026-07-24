@@ -98,7 +98,10 @@ export default async function CoursePage() {
     : -1
   const completedCount = modules.filter((module) => completedModuleIds.has(module.id)).length
   const totalDuration = modules.reduce((total, module) => total + (module.duration_seconds || 0), 0)
-  const totalHours = Math.max(1, Math.round(totalDuration / 3600))
+  const totalMinutes = Math.round(totalDuration / 60)
+  const totalDurationLabel = totalMinutes >= 60
+    ? `${Math.floor(totalMinutes / 60)} h${totalMinutes % 60 ? ` ${totalMinutes % 60} min` : ""}`
+    : `${totalMinutes} min`
 
   return (
     <div className="space-y-10">
@@ -118,7 +121,7 @@ export default async function CoursePage() {
             <p className="mt-1 text-muted-foreground">etapas completas</p>
           </div>
           <div>
-            <p className="font-display text-4xl text-pink">{totalHours} h</p>
+            <p className="font-display text-4xl text-pink">{totalDurationLabel}</p>
             <p className="mt-1 text-muted-foreground">de contenido</p>
           </div>
         </div>
@@ -145,7 +148,7 @@ export default async function CoursePage() {
               )}
               <div className="mt-6 flex flex-wrap items-center gap-5 text-sm text-muted-foreground">
                 <span className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-indigo" />{Math.max(1, Math.round(nextModule.duration_seconds / 60))} min</span>
-                <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-pink" />Video + recursos</span>
+                <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-pink" />Clase en video</span>
               </div>
             </div>
             <Button asChild size="lg" className="btn-gradient min-w-52 justify-between text-white">
