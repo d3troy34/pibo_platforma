@@ -90,6 +90,7 @@ export function MessageInput({ studentId, onMessageSent }: MessageInputProps) {
         onChange={(e) => setMessage(e.target.value)}
         placeholder="Escribí tu mensaje..."
         aria-label="Escribí tu mensaje"
+        maxLength={4000}
         className="min-h-[64px] flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
         disabled={isSending}
         onKeyDown={(e) => {

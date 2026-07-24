@@ -232,6 +232,35 @@ export type Database = {
           }
         ]
       }
+      community_messages: {
+        Row: {
+          id: string
+          sender_id: string
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          sender_id?: string
+          message: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          sender_id?: string
+          message?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profile_directory"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       announcements: {
         Row: {
           id: string
@@ -398,6 +427,21 @@ export type Database = {
         Args: Record<string, never>
         Returns: number
       }
+      get_admin_conversation_summaries: {
+        Args: {
+          page_limit?: number
+          page_offset?: number
+        }
+        Returns: Array<{
+          student_id: string
+          student_name: string
+          student_avatar: string | null
+          last_message: string
+          last_message_time: string
+          last_message_id: string
+          unread_count: number
+        }>
+      }
       mark_message_read: {
         Args: { message_id: string }
         Returns: undefined
@@ -473,7 +517,10 @@ export type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"]
 export type ModuleProgress = Database["public"]["Tables"]["module_progress"]["Row"]
 export type Invitation = Database["public"]["Tables"]["invitations"]["Row"]
 export type DirectMessage = Database["public"]["Tables"]["direct_messages"]["Row"]
+export type CommunityMessage = Database["public"]["Tables"]["community_messages"]["Row"]
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]
+export type AdminConversationSummary =
+  Database["public"]["Functions"]["get_admin_conversation_summaries"]["Returns"][number]
 
 // Resource type for modules
 export type ModuleResource = {
@@ -489,6 +536,13 @@ export type ModuleResource = {
 
 // Direct Message types
 export interface DirectMessageWithSender extends DirectMessage {
+  sender: Pick<
+    Database["public"]["Tables"]["profile_directory"]["Row"],
+    "id" | "full_name" | "avatar_url" | "role"
+  >
+}
+
+export interface CommunityMessageWithSender extends CommunityMessage {
   sender: Pick<
     Database["public"]["Tables"]["profile_directory"]["Row"],
     "id" | "full_name" | "avatar_url" | "role"
