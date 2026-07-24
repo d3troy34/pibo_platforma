@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { appendCommunityMessageUnlessDeleted } from "@/lib/community-chat-state"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { CommunityMessage, CommunityMessageWithSender } from "@/types/database"
@@ -43,10 +44,13 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
   const [message, setMessage] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const deletedMessageIdsRef = useRef(new Set<string>())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMessages(initialMessages)
+    setMessages(initialMessages.filter(
+      (item) => !deletedMessageIdsRef.current.has(item.id)
+    ))
   }, [initialMessages])
 
   useEffect(() => {
@@ -71,10 +75,11 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
           const sender = await loadSender(payload.new.sender_id)
           const incoming = { ...payload.new, sender } as CommunityMessageWithSender
 
-          setMessages((current) => {
-            if (current.some((item) => item.id === incoming.id)) return current
-            return [...current, incoming]
-          })
+          setMessages((current) => appendCommunityMessageUnlessDeleted(
+            current,
+            incoming,
+            deletedMessageIdsRef.current
+          ))
         }
       )
       .on(
@@ -82,6 +87,7 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         { event: "DELETE", schema: "public", table: "community_messages" },
         (payload: { old: Partial<CommunityMessage> }) => {
           if (!payload.old.id) return
+          deletedMessageIdsRef.current.add(payload.old.id)
           setMessages((current) => current.filter((item) => item.id !== payload.old.id))
         }
       )
@@ -123,10 +129,10 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         sender: sender || fallbackSender(currentUserId),
       } as CommunityMessageWithSender
 
-      setMessages((current) => (
-        current.some((item) => item.id === localMessage.id)
-          ? current
-          : [...current, localMessage]
+      setMessages((current) => appendCommunityMessageUnlessDeleted(
+        current,
+        localMessage,
+        deletedMessageIdsRef.current
       ))
       setMessage("")
     } catch (error) {
@@ -146,6 +152,7 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         .eq("id", messageId)
 
       if (error) throw error
+      deletedMessageIdsRef.current.add(messageId)
       setMessages((current) => current.filter((item) => item.id !== messageId))
     } catch (error) {
       console.error("Error deleting community message:", error)

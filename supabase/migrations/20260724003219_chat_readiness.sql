@@ -9,7 +9,9 @@ drop policy if exists messages_insert_participant_or_admin on public.direct_mess
 drop policy if exists messages_mark_read_participant_or_admin on public.direct_messages;
 
 revoke all on table public.direct_messages from anon, authenticated;
-grant select, insert on table public.direct_messages to authenticated;
+grant select on table public.direct_messages to authenticated;
+grant insert (student_id, sender_id, message)
+  on table public.direct_messages to authenticated;
 grant update (read_at) on table public.direct_messages to authenticated;
 
 create policy messages_select_active_participant_or_admin
@@ -28,6 +30,7 @@ create policy messages_insert_active_participant_or_admin
 on public.direct_messages for insert to authenticated
 with check (
   sender_id = (select auth.uid())
+  and read_at is null
   and (
     (
       student_id = (select auth.uid())
@@ -67,15 +70,61 @@ with check (
   )
 );
 
--- The directory exposes only name, avatar and role. Limit it to people who can
--- actually participate in a chat, rather than every signed-in account.
+-- The directory exposes only name, avatar and role. This SECURITY DEFINER helper
+-- is required to evaluate both the actor and target enrollment across the RLS
+-- boundaries on profiles/enrollments. It returns one boolean, lives outside the
+-- exposed schema, fixes search_path and rejects unauthenticated/non-participant
+-- actors before revealing whether a target participates in chat.
+create or replace function private.current_user_can_view_chat_profile(
+  target_profile_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    (select auth.uid()) is not null
+    and (
+      exists (
+        select 1
+        from public.profiles as actor
+        where actor.id = (select auth.uid())
+          and actor.role = 'admin'
+      )
+      or exists (
+        select 1
+        from public.enrollments as actor_enrollment
+        where actor_enrollment.user_id = (select auth.uid())
+          and actor_enrollment.payment_status = 'completed'
+      )
+    )
+    and (
+      exists (
+        select 1
+        from public.profiles as target
+        where target.id = target_profile_id
+          and target.role = 'admin'
+      )
+      or exists (
+        select 1
+        from public.enrollments as target_enrollment
+        where target_enrollment.user_id = target_profile_id
+          and target_enrollment.payment_status = 'completed'
+      )
+    );
+$$;
+
+revoke all on function private.current_user_can_view_chat_profile(uuid)
+  from public, anon, authenticated;
+grant execute on function private.current_user_can_view_chat_profile(uuid)
+  to authenticated;
+
 drop policy if exists profile_directory_read_authenticated on public.profile_directory;
 create policy profile_directory_read_chat_participants
 on public.profile_directory for select to authenticated
-using (
-  (select private.current_user_is_enrolled())
-  or (select private.current_user_is_admin())
-);
+using ((select private.current_user_can_view_chat_profile(id)));
 
 create table public.community_messages (
   id uuid primary key default gen_random_uuid(),
@@ -95,7 +144,9 @@ create index community_messages_sender_id_idx
 
 alter table public.community_messages enable row level security;
 revoke all on table public.community_messages from anon, authenticated;
-grant select, insert, delete on table public.community_messages to authenticated;
+grant select, delete on table public.community_messages to authenticated;
+grant insert (sender_id, message)
+  on table public.community_messages to authenticated;
 grant select, insert, update, delete on table public.community_messages to service_role;
 
 create policy community_messages_read_enrolled_or_admin

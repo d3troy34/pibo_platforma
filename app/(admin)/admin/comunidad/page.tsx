@@ -26,7 +26,8 @@ export default async function AdminComunidadPage() {
         role
       )
     `)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(300)
 
   if (error) console.error("Error fetching community messages:", error)
@@ -41,7 +42,7 @@ export default async function AdminComunidadPage() {
         </p>
       </div>
       <CommunityChat
-        initialMessages={(data || []) as CommunityMessageWithSender[]}
+        initialMessages={[...(data || [])].reverse() as CommunityMessageWithSender[]}
         currentUserId={user.id}
         canModerate
       />

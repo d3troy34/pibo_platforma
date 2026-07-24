@@ -20,7 +20,8 @@ async function getCommunityMessages() {
         role
       )
     `)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(300)
 
   if (error) {
@@ -28,7 +29,7 @@ async function getCommunityMessages() {
     return []
   }
 
-  return (data || []) as CommunityMessageWithSender[]
+  return [...(data || [])].reverse() as CommunityMessageWithSender[]
 }
 
 export default async function ComunidadPage() {
