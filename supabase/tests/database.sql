@@ -2,10 +2,11 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(68);
+select plan(92);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'profile_directory', 'chat-safe profile directory exists');
+select has_table('public', 'community_messages', 'community messages table exists');
 select has_table('private', 'purchase_events', 'purchase events stay outside the Data API');
 select has_table('private', 'api_rate_limits', 'rate limits stay outside the Data API');
 
@@ -23,6 +24,7 @@ select ok(
         'module_progress',
         'invitations',
         'direct_messages',
+        'community_messages',
         'announcements'
       )
   ),
@@ -51,11 +53,53 @@ select is(
         'direct_messages_sender_id_idx',
         'invitations_accepted_by_idx',
         'invitations_invited_by_idx',
-        'modules_created_by_idx'
+        'modules_created_by_idx',
+        'community_messages_created_at_idx',
+        'community_messages_sender_id_idx'
       )
   ),
-  6::bigint,
+  8::bigint,
   'foreign-key columns have supporting indexes'
+);
+select ok(
+  has_table_privilege('authenticated', 'public.community_messages', 'SELECT'),
+  'authenticated users have an explicit Data API read grant for community messages'
+);
+select ok(
+  has_table_privilege('authenticated', 'public.community_messages', 'INSERT'),
+  'authenticated users have an explicit Data API insert grant for community messages'
+);
+select ok(
+  has_table_privilege('authenticated', 'public.community_messages', 'DELETE'),
+  'authenticated users have an explicit Data API delete grant for moderated community messages'
+);
+select ok(
+  has_table_privilege('service_role', 'public.community_messages', 'SELECT, INSERT, UPDATE, DELETE'),
+  'service role has an explicit Data API grant for community moderation tooling'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.community_messages', 'UPDATE'),
+  'community messages cannot be edited through the Data API'
+);
+select ok(
+  exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'direct_messages'
+  ),
+  'direct messages are published to Realtime'
+);
+select ok(
+  exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'community_messages'
+  ),
+  'community messages are published to Realtime'
 );
 
 select ok(
@@ -273,7 +317,7 @@ select set_config(
 );
 
 select is((select count(*) from public.profiles), 1::bigint, 'students only see their own private profile');
-select is((select count(*) from public.profile_directory), 4::bigint, 'students can read the safe chat directory');
+select is((select count(*) from public.profile_directory), 0::bigint, 'unenrolled students cannot read the chat directory');
 
 reset role;
 
@@ -568,12 +612,37 @@ select is(
   'accepted invitation records the correct user'
 );
 
-insert into public.direct_messages (student_id, sender_id, message)
+insert into public.enrollments (
+  user_id,
+  payment_provider,
+  payment_status,
+  payment_method,
+  amount_usd,
+  currency
+)
 values (
   '00000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000003',
-  'Private support reply'
+  'manual',
+  'completed',
+  'test',
+  0,
+  'USD'
 );
+
+insert into public.direct_messages (id, student_id, sender_id, message)
+values
+  (
+    '10000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000003',
+    'Private support reply'
+  ),
+  (
+    '10000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000003',
+    'Private support reply for Student B'
+  );
 
 set local role authenticated;
 select set_config(
@@ -582,17 +651,99 @@ select set_config(
   true
 );
 select is((select count(*) from public.direct_messages), 0::bigint, 'another student cannot read private messages');
+select is((select count(*) from public.community_messages), 0::bigint, 'unenrolled students cannot read the community');
+select throws_ok(
+  $$
+    insert into public.direct_messages (student_id, sender_id, message)
+    values (
+      '00000000-0000-0000-0000-000000000002',
+      '00000000-0000-0000-0000-000000000002',
+      'Blocked private message'
+    )
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "direct_messages"',
+  'unenrolled students cannot send private messages'
+);
+select throws_ok(
+  $$
+    insert into public.community_messages (sender_id, message)
+    values ('00000000-0000-0000-0000-000000000002', 'Blocked community message')
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "community_messages"',
+  'unenrolled students cannot send community messages'
+);
 
 select set_config(
   'request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
   true
 );
+select is((select count(*) from public.profile_directory), 4::bigint, 'enrolled students can read chat identities');
 select is((select count(*) from public.direct_messages), 1::bigint, 'message owner can read the conversation');
 select is(public.get_unread_message_count(), 1, 'message owner sees the unread count');
 select lives_ok(
+  $$
+    insert into public.direct_messages (id, student_id, sender_id, message)
+    values (
+      '10000000-0000-0000-0000-000000000003',
+      '00000000-0000-0000-0000-000000000001',
+      '00000000-0000-0000-0000-000000000001',
+      'Private message from an enrolled student'
+    )
+  $$,
+  'enrolled students can send private messages only as themselves'
+);
+select lives_ok(
+  $$
+    insert into public.community_messages (id, sender_id, message)
+    values (
+      '20000000-0000-0000-0000-000000000001',
+      '00000000-0000-0000-0000-000000000001',
+      'Community message from an enrolled student'
+    )
+  $$,
+  'enrolled students can send community messages only as themselves'
+);
+select is((select count(*) from public.community_messages), 1::bigint, 'enrolled students can read the community');
+select lives_ok(
   $$select public.mark_message_read('00000000-0000-0000-0000-000000000000')$$,
   'marking an unknown message remains harmless'
+);
+select lives_ok(
+  $$select public.mark_message_read('10000000-0000-0000-0000-000000000003')$$,
+  'marking an own message remains harmless'
+);
+reset role;
+select is(
+  (select read_at from public.direct_messages where id = '10000000-0000-0000-0000-000000000003'),
+  null,
+  'students cannot mark their own messages as read'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+select lives_ok(
+  $$select public.mark_message_read('10000000-0000-0000-0000-000000000002')$$,
+  'marking another student message remains harmless'
+);
+reset role;
+select is(
+  (select read_at from public.direct_messages where id = '10000000-0000-0000-0000-000000000002'),
+  null,
+  'students cannot mark another student message as read'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
 );
 select lives_ok(
   format(
@@ -602,6 +753,33 @@ select lives_ok(
   'message owner can mark an incoming message as read'
 );
 select is(public.get_unread_message_count(), 0, 'marked message leaves the unread count');
+delete from public.community_messages
+where id = '20000000-0000-0000-0000-000000000001';
+select is(
+  (select count(*) from public.community_messages),
+  1::bigint,
+  'students cannot delete community messages'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated"}',
+  true
+);
+select is((select count(*) from public.direct_messages), 3::bigint, 'admins can read every private conversation');
+select is((select count(*) from public.community_messages), 1::bigint, 'admins can read every community message');
+select lives_ok(
+  $$delete from public.community_messages where id = '20000000-0000-0000-0000-000000000001'$$,
+  'admins can moderate by deleting a community message'
+);
+select is((select count(*) from public.community_messages), 0::bigint, 'admin moderation removes the community message');
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
 
 select throws_ok(
   $$update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-000000000001'$$,

@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react"
 import Link from "next/link"
@@ -38,6 +39,7 @@ const navigation = [
   { name: "Mi ruta", href: "/curso", icon: Map, requiresPaid: false },
   { name: "Progreso", href: "/progreso", icon: BarChart3, requiresPaid: true },
   { name: "Soporte", href: "/mensajes", icon: Headphones, requiresPaid: true },
+  { name: "Comunidad", href: "/comunidad", icon: UsersRound, requiresPaid: true },
   { name: "Novedades", href: "/anuncios", icon: Bell, requiresPaid: true },
   { name: "Perfil", href: "/perfil", icon: UserRound, requiresPaid: false },
 ] as const

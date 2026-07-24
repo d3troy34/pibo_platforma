@@ -13,6 +13,7 @@ import {
   Sun,
   UserPlus,
   Users,
+  UsersRound,
   X,
 } from "lucide-react"
 import Link from "next/link"
@@ -40,6 +41,7 @@ const navItems = [
   { label: "Invitar", href: "/admin/estudiantes/invitar", icon: UserPlus },
   { label: "Contenido", href: "/admin/contenido", icon: BookOpen },
   { label: "Mensajes", href: "/admin/mensajes", icon: MessageSquare },
+  { label: "Comunidad", href: "/admin/comunidad", icon: UsersRound },
   { label: "Novedades", href: "/admin/anuncios", icon: Bell },
 ] as const
 

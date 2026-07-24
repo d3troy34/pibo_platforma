@@ -33,6 +33,38 @@ export function MessageList({ messages: initialMessages, currentUserId, studentI
     setMessages(initialMessages)
   }, [initialMessages])
 
+  // Opening a conversation is enough to acknowledge every message addressed to
+  // the viewer. The database policy only permits the recipient (or an admin) to
+  // update read_at, so this remains safe even if the browser request is forged.
+  useEffect(() => {
+    const unreadIds = messages
+      .filter((message) => message.sender_id !== currentUserId && !message.read_at)
+      .map((message) => message.id)
+
+    if (unreadIds.length === 0) return
+
+    const markIncomingMessagesRead = async () => {
+      const readAt = new Date().toISOString()
+      const { error } = await createClient()
+        .from("direct_messages")
+        .update({ read_at: readAt })
+        .in("id", unreadIds)
+
+      if (error) {
+        console.error("Error marking messages as read:", error)
+        return
+      }
+
+      setMessages((current) => current.map((message) => (
+        unreadIds.includes(message.id)
+          ? { ...message, read_at: readAt }
+          : message
+      )))
+    }
+
+    void markIncomingMessagesRead()
+  }, [currentUserId, messages])
+
   // Show a locally sent message immediately. Realtime may arrive later and is
   // deduplicated by id, so the UI never depends on network propagation speed.
   useEffect(() => {
