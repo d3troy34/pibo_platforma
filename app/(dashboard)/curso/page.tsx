@@ -93,6 +93,9 @@ export default async function CoursePage() {
   const nextModule = modules.find(
     (module) => module.can_access && !completedModuleIds.has(module.id)
   )
+  const nextModuleIndex = nextModule
+    ? modules.findIndex((module) => module.id === nextModule.id)
+    : -1
   const completedCount = modules.filter((module) => completedModuleIds.has(module.id)).length
   const totalDuration = modules.reduce((total, module) => total + (module.duration_seconds || 0), 0)
   const totalHours = Math.max(1, Math.round(totalDuration / 3600))
@@ -130,7 +133,7 @@ export default async function CoursePage() {
                 <Sparkles className="h-4 w-4" /> Tu próximo paso
               </p>
               <p className="font-display text-2xl text-pink">
-                Etapa {String(nextModule.order_index + 1).padStart(2, "0")}
+                Etapa {String(nextModuleIndex + 1).padStart(2, "0")}
               </p>
               <h2 className="mt-2 max-w-3xl font-display text-4xl leading-tight tracking-[-0.035em] lg:text-5xl">
                 {nextModule.title}
@@ -173,6 +176,7 @@ export default async function CoursePage() {
                   isCompleted={completedModuleIds.has(module.id)}
                   isLocked={module.is_locked}
                   imageLoading={index === 0 ? "eager" : "lazy"}
+                  displayIndex={index}
                 />
               ))}
             </div>

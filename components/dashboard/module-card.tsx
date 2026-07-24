@@ -15,6 +15,7 @@ interface ModuleCardProps {
   isCompleted: boolean
   isLocked?: boolean
   imageLoading?: "eager" | "lazy"
+  displayIndex: number
 }
 
 function durationLabel(seconds: number) {
@@ -30,6 +31,7 @@ export function ModuleCard({
   isCompleted,
   isLocked = false,
   imageLoading = "lazy",
+  displayIndex,
 }: ModuleCardProps) {
   const content = (
     <div
@@ -42,7 +44,7 @@ export function ModuleCard({
       <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="font-display text-2xl text-pink">
-            {String(module.order_index + 1).padStart(2, "0")}
+            {String(displayIndex + 1).padStart(2, "0")}
           </span>
           {isCompleted ? (
             <Badge className="border-0 bg-indigo/10 text-indigo hover:bg-indigo/10">
