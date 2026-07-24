@@ -1,16 +1,68 @@
-import type { CommunityMessageWithSender } from "@/types/database"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+
+import type { CommunityMessage, CommunityMessageWithSender } from "@/types/database"
+
+/**
+ * Postgres Changes and PostgREST do not share a TypeScript boundary with the
+ * browser. Normalize their timestamp before putting them into React state,
+ * otherwise the date formatter can throw during render and the whole route
+ * falls into its error boundary after a successful insert.
+ */
+export function normalizeCommunityMessage(value: unknown): CommunityMessage | null {
+  if (!value || typeof value !== "object") return null
+
+  const message = value as Partial<CommunityMessage>
+  if (
+    typeof message.id !== "string"
+    || typeof message.sender_id !== "string"
+    || typeof message.message !== "string"
+  ) {
+    return null
+  }
+
+  const createdAt = typeof message.created_at === "string"
+    && !Number.isNaN(new Date(message.created_at).getTime())
+    ? message.created_at
+    : new Date().toISOString()
+
+  return {
+    id: message.id,
+    sender_id: message.sender_id,
+    message: message.message,
+    created_at: createdAt,
+  }
+}
+
+export function formatCommunityMessageTimestamp(value: unknown): string {
+  if (typeof value !== "string") return "Recién enviado"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Recién enviado"
+
+  return format(date, "d MMM, HH:mm", { locale: es })
+}
 
 export function appendCommunityMessageUnlessDeleted(
   messages: CommunityMessageWithSender[],
-  incoming: CommunityMessageWithSender,
+  incoming: unknown,
   deletedMessageIds: ReadonlySet<string>
 ): CommunityMessageWithSender[] {
+  const normalizedIncoming = normalizeCommunityMessage(incoming)
+  if (!normalizedIncoming) return messages
+
   if (
-    deletedMessageIds.has(incoming.id)
-    || messages.some((message) => message.id === incoming.id)
+    deletedMessageIds.has(normalizedIncoming.id)
+    || messages.some((message) => message.id === normalizedIncoming.id)
   ) {
     return messages
   }
 
-  return [...messages, incoming]
+  return [
+    ...messages,
+    {
+      ...(incoming as CommunityMessageWithSender),
+      ...normalizedIncoming,
+    },
+  ]
 }
