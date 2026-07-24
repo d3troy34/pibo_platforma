@@ -61,4 +61,10 @@ describe("appendCommunityMessageUnlessDeleted", () => {
     expect(formatCommunityMessageTimestamp(undefined)).toBe("Recién enviado")
     expect(formatCommunityMessageTimestamp("not-a-date")).toBe("Recién enviado")
   })
+
+  it("uses Buenos Aires time identically during server render and browser hydration", () => {
+    expect(
+      formatCommunityMessageTimestamp("2026-07-24T01:39:53.301168+00:00")
+    ).toBe("23 jul, 22:39")
+  })
 })

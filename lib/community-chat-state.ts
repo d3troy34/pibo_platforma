@@ -1,7 +1,13 @@
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-
 import type { CommunityMessage, CommunityMessageWithSender } from "@/types/database"
+
+const communityTimestampFormatter = new Intl.DateTimeFormat("es-AR", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "America/Argentina/Buenos_Aires",
+})
 
 /**
  * Postgres Changes and PostgREST do not share a TypeScript boundary with the
@@ -40,7 +46,7 @@ export function formatCommunityMessageTimestamp(value: unknown): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "Recién enviado"
 
-  return format(date, "d MMM, HH:mm", { locale: es })
+  return communityTimestampFormatter.format(date)
 }
 
 export function appendCommunityMessageUnlessDeleted(
