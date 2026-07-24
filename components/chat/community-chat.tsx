@@ -1,15 +1,17 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import { Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { appendCommunityMessageUnlessDeleted } from "@/lib/community-chat-state"
+import {
+  appendCommunityMessageUnlessDeleted,
+  formatCommunityMessageTimestamp,
+  normalizeCommunityMessage,
+} from "@/lib/community-chat-state"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { CommunityMessage, CommunityMessageWithSender } from "@/types/database"
@@ -20,8 +22,8 @@ interface CommunityChatProps {
   canModerate: boolean
 }
 
-function getInitials(name: string | null): string {
-  if (!name) return "?"
+function getInitials(name: unknown): string {
+  if (typeof name !== "string" || !name.trim()) return "?"
   return name
     .split(" ")
     .map((part) => part[0])
@@ -72,8 +74,14 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "community_messages" },
         async (payload: { new: CommunityMessage }) => {
-          const sender = await loadSender(payload.new.sender_id)
-          const incoming = { ...payload.new, sender } as CommunityMessageWithSender
+          const message = normalizeCommunityMessage(payload.new)
+          if (!message) {
+            console.warn("Ignored malformed community realtime payload")
+            return
+          }
+
+          const sender = await loadSender(message.sender_id)
+          const incoming = { ...message, sender } as CommunityMessageWithSender
 
           setMessages((current) => appendCommunityMessageUnlessDeleted(
             current,
@@ -116,7 +124,10 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         .select()
         .single()
 
-      if (error || !data) throw error || new Error("Message was not saved")
+      const savedMessage = normalizeCommunityMessage(data)
+      if (error || !savedMessage) {
+        throw error || new Error("Message was not saved correctly")
+      }
 
       const { data: sender } = await supabase
         .from("profile_directory")
@@ -125,7 +136,7 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
         .single()
 
       const localMessage = {
-        ...data,
+        ...savedMessage,
         sender: sender || fallbackSender(currentUserId),
       } as CommunityMessageWithSender
 
@@ -184,13 +195,13 @@ export function CommunityChat({ initialMessages, currentUserId, canModerate }: C
                   <Avatar className="h-9 w-9 shrink-0 border border-ink/10">
                     <AvatarImage src={item.sender?.avatar_url || undefined} />
                     <AvatarFallback className="bg-primary/20 text-xs text-primary">
-                      {getInitials(item.sender?.full_name || null)}
+                      {getInitials(item.sender?.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className={cn("min-w-0 max-w-[80%]", isOwnMessage && "items-end text-right")}>
                     <div className={cn("mb-1 flex items-center gap-2 text-xs text-muted-foreground", isOwnMessage && "justify-end")}>
                       <span className="font-semibold text-ink">{item.sender?.full_name || "Miembro Pibo"}</span>
-                      <span>{format(new Date(item.created_at), "d MMM, HH:mm", { locale: es })}</span>
+                      <span>{formatCommunityMessageTimestamp(item.created_at)}</span>
                     </div>
                     <div className={cn(
                       "rounded-2xl px-4 py-3 text-sm leading-6",
