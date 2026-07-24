@@ -1,67 +1,26 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import {
-  AdminConversationList,
-  type StudentConversation,
-} from "@/components/chat/admin-conversation-list"
+import { AdminConversationList } from "@/components/chat/admin-conversation-list"
 
 export const dynamic = "force-dynamic"
 
-async function getStudentConversations(): Promise<StudentConversation[]> {
-  const supabase = await createClient()
+const CONVERSATIONS_PER_PAGE = 50
+const MAX_INBOX_PAGE = 20_000
 
-  // Get all students who have sent or received messages
-  const { data: conversations, error } = await supabase.from("direct_messages")
-    .select(`
-      student_id,
-      message,
-      created_at,
-      sender_id,
-      read_at,
-      student:profiles!student_id(
-        id,
-        full_name,
-        avatar_url
-      )
-    `)
-    .order("created_at", { ascending: false })
+function parsePage(value: string | string[] | undefined): number {
+  const candidate = Array.isArray(value) ? value[0] : value
+  const page = Number.parseInt(candidate || "1", 10)
 
-  if (error || !conversations) {
-    console.error("Error fetching conversations:", error)
-    return []
-  }
+  if (!Number.isSafeInteger(page) || page < 1) return 1
 
-  // Group by student and get latest message for each
-  const studentMap = new Map<string, StudentConversation>()
-
-  for (const msg of conversations) {
-    const studentId = msg.student_id
-    if (!studentMap.has(studentId)) {
-      const student = msg.student
-
-      // Count unread messages from this student
-      const unreadCount = conversations.filter(
-        (message) =>
-          message.student_id === studentId &&
-          message.sender_id === studentId &&
-          !message.read_at
-      ).length
-
-      studentMap.set(studentId, {
-        student_id: studentId,
-        student_name: student?.full_name || "Usuario",
-        student_avatar: student?.avatar_url || null,
-        last_message: msg.message,
-        last_message_time: msg.created_at,
-        unread_count: unreadCount,
-      })
-    }
-  }
-
-  return Array.from(studentMap.values())
+  return Math.min(page, MAX_INBOX_PAGE)
 }
 
-export default async function AdminMensajesPage() {
+export default async function AdminMensajesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string | string[] }>
+}) {
   const supabase = await createClient()
 
   const {
@@ -83,7 +42,28 @@ export default async function AdminMensajesPage() {
     redirect("/curso")
   }
 
-  const conversations = await getStudentConversations()
+  const page = parsePage((await searchParams).page)
+  const { data, error } = await supabase.rpc(
+    "get_admin_conversation_summaries",
+    {
+      page_limit: CONVERSATIONS_PER_PAGE + 1,
+      page_offset: (page - 1) * CONVERSATIONS_PER_PAGE,
+    }
+  )
+
+  if (error) {
+    console.error("Error fetching conversation summaries:", error)
+    throw new Error("No se pudo cargar la bandeja de mensajes.")
+  }
+
+  const rows = data || []
+
+  if (page > 1 && rows.length === 0) {
+    redirect("/admin/mensajes")
+  }
+
+  const hasNextPage = rows.length > CONVERSATIONS_PER_PAGE
+  const conversations = rows.slice(0, CONVERSATIONS_PER_PAGE)
 
   return (
     <div className="container max-w-6xl mx-auto p-6">
@@ -94,7 +74,11 @@ export default async function AdminMensajesPage() {
         </p>
       </div>
 
-      <AdminConversationList conversations={conversations} />
+      <AdminConversationList
+        conversations={conversations}
+        page={page}
+        hasNextPage={hasNextPage}
+      />
     </div>
   )
 }

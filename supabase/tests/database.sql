@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(113);
+select plan(128);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'profile_directory', 'chat-safe profile directory exists');
@@ -180,6 +180,38 @@ select ok(
     'EXECUTE'
   ),
   'only authenticated actors can execute the private chat directory helper'
+);
+select ok(
+  to_regclass('public.direct_messages_admin_unread_idx') is not null,
+  'the admin inbox has a focused unread-message index'
+);
+select ok(
+  to_regprocedure(
+    'public.get_admin_conversation_summaries(integer,integer)'
+  ) is not null,
+  'the bounded admin conversation summary RPC exists'
+);
+select ok(
+  not (
+    select procedure.prosecdef
+    from pg_proc as procedure
+    where procedure.oid =
+      'public.get_admin_conversation_summaries(integer,integer)'::regprocedure
+  ),
+  'the admin conversation summary RPC keeps caller RLS active'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.get_admin_conversation_summaries(integer,integer)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon',
+    'public.get_admin_conversation_summaries(integer,integer)',
+    'EXECUTE'
+  ),
+  'only authenticated users can reach the admin-guarded inbox RPC'
 );
 select ok(
   not has_function_privilege(
@@ -673,19 +705,27 @@ values (
   'USD'
 );
 
-insert into public.direct_messages (id, student_id, sender_id, message)
+insert into public.direct_messages (
+  id,
+  student_id,
+  sender_id,
+  message,
+  created_at
+)
 values
   (
     '10000000-0000-0000-0000-000000000001',
     '00000000-0000-0000-0000-000000000001',
     '00000000-0000-0000-0000-000000000003',
-    'Private support reply'
+    'Private support reply',
+    now() - interval '4 hours'
   ),
   (
     '10000000-0000-0000-0000-000000000002',
     '00000000-0000-0000-0000-000000000002',
     '00000000-0000-0000-0000-000000000003',
-    'Private support reply for Student B'
+    'Private support reply for Student B',
+    now() - interval '3 hours'
   );
 
 set local role authenticated;
@@ -743,6 +783,12 @@ select is(
   private.current_user_can_view_chat_profile('00000000-0000-0000-0000-000000000002'),
   false,
   'the directory helper rejects inactive target profiles'
+);
+select throws_ok(
+  $$select * from public.get_admin_conversation_summaries()$$,
+  '42501',
+  'admin access required',
+  'students cannot call the administrator inbox RPC'
 );
 select is((select count(*) from public.direct_messages), 1::bigint, 'message owner can read the conversation');
 select is(public.get_unread_message_count(), 1, 'message owner sees the unread count');
@@ -970,9 +1016,131 @@ select lives_ok(
   $$,
   'admins can send community messages'
 );
+
+reset role;
+update public.direct_messages
+set created_at = now() + interval '1 hour'
+where message = 'Admin can contact an inactive student';
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated"}',
+  true
+);
 select is((select count(*) from public.direct_messages), 4::bigint, 'admins can read every private conversation');
 select is((select count(*) from public.community_messages), 2::bigint, 'admins can read every community message');
-select is((select count(*) from public.profile_directory), 2::bigint, 'admins see only real chat participants in the directory');
+select is(
+  (select count(*) from public.profile_directory),
+  (select count(*) from public.profiles),
+  'admins can see every historical chat identity'
+);
+select is(
+  (
+    select full_name
+    from public.profile_directory
+    where id = '00000000-0000-0000-0000-000000000002'
+  ),
+  'Student B',
+  'admins retain the inactive student name and avatar directory row'
+);
+select is(
+  (select count(*) from public.get_admin_conversation_summaries()),
+  2::bigint,
+  'the admin inbox returns one summary per conversation'
+);
+select is(
+  (
+    select student_name
+    from public.get_admin_conversation_summaries()
+    where student_id = '00000000-0000-0000-0000-000000000002'
+  ),
+  'Student B',
+  'the admin inbox preserves an inactive student identity'
+);
+select is(
+  (
+    select unread_count
+    from public.get_admin_conversation_summaries()
+    where student_id = '00000000-0000-0000-0000-000000000001'
+  ),
+  1::bigint,
+  'the admin inbox counts unread student messages once'
+);
+select is(
+  (
+    select unread_count
+    from public.get_admin_conversation_summaries()
+    where student_id = '00000000-0000-0000-0000-000000000002'
+  ),
+  0::bigint,
+  'admin-authored messages do not inflate the admin unread count'
+);
+select is(
+  (
+    select last_message
+    from public.get_admin_conversation_summaries()
+    where student_id = '00000000-0000-0000-0000-000000000002'
+  ),
+  'Admin can contact an inactive student',
+  'the admin inbox returns the latest message in each conversation'
+);
+select is(
+  (
+    select student_id
+    from public.get_admin_conversation_summaries(1, 0)
+  ),
+  '00000000-0000-0000-0000-000000000002'::uuid,
+  'the first inbox page is ordered by latest activity'
+);
+select is(
+  (
+    select student_id
+    from public.get_admin_conversation_summaries(1, 1)
+  ),
+  '00000000-0000-0000-0000-000000000001'::uuid,
+  'the second inbox page continues without repeating a conversation'
+);
+select is(
+  (
+    select count(*)
+    from public.get_admin_conversation_summaries(1, 2)
+  ),
+  0::bigint,
+  'the bounded inbox returns no rows after the final page'
+);
+
+reset role;
+update public.direct_messages
+set created_at = now() + interval '2 hours'
+where message in (
+  'Private message from an enrolled student',
+  'Admin can contact an inactive student'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000003","role":"authenticated"}',
+  true
+);
+select is(
+  (
+    select student_id
+    from public.get_admin_conversation_summaries(1, 0)
+  ),
+  (
+    select student_id
+    from public.direct_messages
+    where message in (
+      'Private message from an enrolled student',
+      'Admin can contact an inactive student'
+    )
+    order by id desc
+    limit 1
+  ),
+  'equal activity timestamps use message id for stable page ordering'
+);
 select lives_ok(
   $$
     delete from public.community_messages

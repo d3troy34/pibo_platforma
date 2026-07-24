@@ -3,26 +3,28 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { MessageSquare } from "lucide-react"
+import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
-
-export interface StudentConversation {
-  student_id: string
-  student_name: string
-  student_avatar: string | null
-  last_message: string
-  last_message_time: string
-  unread_count: number
-}
+import type { AdminConversationSummary } from "@/types/database"
 
 interface AdminConversationListProps {
-  conversations: StudentConversation[]
+  conversations: AdminConversationSummary[]
+  page: number
+  hasNextPage: boolean
 }
 
 function getInitials(name: string | null): string {
@@ -35,7 +37,11 @@ function getInitials(name: string | null): string {
     .slice(0, 2)
 }
 
-export function AdminConversationList({ conversations }: AdminConversationListProps) {
+export function AdminConversationList({
+  conversations,
+  page,
+  hasNextPage,
+}: AdminConversationListProps) {
   const router = useRouter()
 
   useEffect(() => {
@@ -46,7 +52,16 @@ export function AdminConversationList({ conversations }: AdminConversationListPr
       // A short debounce collapses a message INSERT and its immediate read_at
       // UPDATE into one refresh while still keeping the inbox live.
       if (refreshTimeout) clearTimeout(refreshTimeout)
-      refreshTimeout = setTimeout(() => router.refresh(), 150)
+      refreshTimeout = setTimeout(() => {
+        // Activity changes invalidate offset-based pages. Return to the newest
+        // page so a conversation cannot be duplicated or skipped after moving.
+        if (page > 1) {
+          router.replace("/admin/mensajes", { scroll: false })
+          return
+        }
+
+        router.refresh()
+      }, 150)
     }
 
     const channel = supabase
@@ -62,7 +77,7 @@ export function AdminConversationList({ conversations }: AdminConversationListPr
       if (refreshTimeout) clearTimeout(refreshTimeout)
       void supabase.removeChannel(channel)
     }
-  }, [router])
+  }, [page, router])
 
   if (conversations.length === 0) {
     return (
@@ -81,8 +96,10 @@ export function AdminConversationList({ conversations }: AdminConversationListPr
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Conversaciones activas</CardTitle>
-        <CardDescription>{conversations.length} estudiante(s) con mensajes</CardDescription>
+        <CardTitle>Conversaciones recientes</CardTitle>
+        <CardDescription>
+          Página {page} · {conversations.length} estudiante(s) con mensajes
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[calc(100vh-18rem)]">
@@ -128,6 +145,43 @@ export function AdminConversationList({ conversations }: AdminConversationListPr
           </div>
         </ScrollArea>
       </CardContent>
+      {(page > 1 || hasNextPage) && (
+        <CardFooter
+          className="justify-between border-t border-border/80 pt-6"
+          role="navigation"
+          aria-label="Paginación de conversaciones"
+        >
+          {page > 1 ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/admin/mensajes?page=${page - 1}`}>
+                <ChevronLeft />
+                Anterior
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              <ChevronLeft />
+              Anterior
+            </Button>
+          )}
+
+          <span className="text-sm text-muted-foreground">Página {page}</span>
+
+          {hasNextPage ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/admin/mensajes?page=${page + 1}`}>
+                Siguiente
+                <ChevronRight />
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              Siguiente
+              <ChevronRight />
+            </Button>
+          )}
+        </CardFooter>
+      )}
     </Card>
   )
 }

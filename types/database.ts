@@ -427,6 +427,21 @@ export type Database = {
         Args: Record<string, never>
         Returns: number
       }
+      get_admin_conversation_summaries: {
+        Args: {
+          page_limit?: number
+          page_offset?: number
+        }
+        Returns: Array<{
+          student_id: string
+          student_name: string
+          student_avatar: string | null
+          last_message: string
+          last_message_time: string
+          last_message_id: string
+          unread_count: number
+        }>
+      }
       mark_message_read: {
         Args: { message_id: string }
         Returns: undefined
@@ -504,6 +519,8 @@ export type Invitation = Database["public"]["Tables"]["invitations"]["Row"]
 export type DirectMessage = Database["public"]["Tables"]["direct_messages"]["Row"]
 export type CommunityMessage = Database["public"]["Tables"]["community_messages"]["Row"]
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"]
+export type AdminConversationSummary =
+  Database["public"]["Functions"]["get_admin_conversation_summaries"]["Returns"][number]
 
 // Resource type for modules
 export type ModuleResource = {
