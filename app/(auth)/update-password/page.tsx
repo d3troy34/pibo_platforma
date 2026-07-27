@@ -34,7 +34,6 @@ type UpdatePasswordFormValues = z.infer<typeof updatePasswordSchema>
 export default function UpdatePasswordPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
 
   const {
     register,
@@ -48,6 +47,7 @@ export default function UpdatePasswordPage() {
     setIsLoading(true)
 
     try {
+      const supabase = createClient()
       const { error } = await supabase.auth.updateUser({
         password: data.password,
       })

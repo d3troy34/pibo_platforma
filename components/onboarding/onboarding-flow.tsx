@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -68,7 +68,6 @@ const goals: Array<{
 
 export function OnboardingFlow({ profile }: OnboardingFlowProps) {
   const router = useRouter()
-  const supabase = useMemo(() => createClient(), [])
   const [step, setStep] = useState(1)
   const [goal, setGoal] = useState<Goal | null>((profile?.goal as Goal) || null)
   const [country, setCountry] = useState(profile?.country || "")
@@ -86,11 +85,13 @@ export function OnboardingFlow({ profile }: OnboardingFlowProps) {
     }
 
     setSaving(true)
+    const supabase = createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
+      setSaving(false)
       router.push("/login?redirect=/onboarding")
       return
     }
