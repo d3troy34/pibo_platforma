@@ -5,8 +5,7 @@ import { invitationEmail } from "@/lib/email-templates"
 import { checkRateLimit, getRateLimitHttpError } from "@/lib/rate-limit"
 import { getResend } from "@/lib/resend/client"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
-import type { Profile } from "@/types/database"
+import { getAuthenticatedAdminId } from "@/lib/admin-auth"
 
 function normalizeEmail(value: unknown): string | null {
   if (typeof value !== "string") return null
@@ -21,26 +20,9 @@ function normalizeFullName(value: unknown): string | null {
   return fullName ? fullName.slice(0, 120) : null
 }
 
-async function getAdminId(): Promise<string | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return null
-
-  const { data: profile } = (await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()) as { data: Pick<Profile, "role"> | null }
-
-  return profile?.role === "admin" ? user.id : null
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const adminId = await getAdminId()
+    const adminId = await getAuthenticatedAdminId()
     if (!adminId) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }
@@ -154,7 +136,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const adminId = await getAdminId()
+    const adminId = await getAuthenticatedAdminId()
     if (!adminId) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { UserPlus, Mail, Calendar } from "lucide-react"
 import type { Profile, Enrollment, Invitation } from "@/types/database"
+import { ResendInvitationButton } from "@/components/admin/resend-invitation-button"
 
 export const metadata = {
   title: "Estudiantes",
@@ -25,12 +26,12 @@ export default async function StudentsPage() {
   type StudentWithEnrollment = Profile & { enrollments: Enrollment[] }
   const students = studentsData as StudentWithEnrollment[] | null
 
-  // Get pending invitations
+  // Get invitations that have not been accepted, including expired ones so an
+  // administrator can renew them without creating duplicate rows.
   const { data: invitationsData } = await supabase
     .from("invitations")
     .select("*")
     .is("accepted_at", null)
-    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
 
   const pendingInvitations = invitationsData as Invitation[] | null
@@ -69,28 +70,38 @@ export default async function StudentsPage() {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Mail className="h-5 w-5 text-accent" />
-              Invitaciones Pendientes ({pendingInvitations.length})
+              Invitaciones sin aceptar ({pendingInvitations.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {pendingInvitations.map((invitation) => (
-                <div
-                  key={invitation.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-background/50"
-                >
-                  <div>
-                    <p className="font-medium">{invitation.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Enviada el{" "}
-                      {new Date(invitation.created_at).toLocaleDateString("es-AR")}
-                    </p>
+              {pendingInvitations.map((invitation) => {
+                const isExpired = new Date(invitation.expires_at).getTime() <= Date.now()
+
+                return (
+                  <div
+                    key={invitation.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-background/50"
+                  >
+                    <div>
+                      <p className="font-medium">{invitation.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enviada el{" "}
+                        {new Date(invitation.created_at).toLocaleDateString("es-AR")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={isExpired ? "text-destructive border-destructive" : "text-accent border-accent"}
+                      >
+                        {isExpired ? "Vencida" : "Pendiente"}
+                      </Badge>
+                      <ResendInvitationButton invitationId={invitation.id} />
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-accent border-accent">
-                    Pendiente
-                  </Badge>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>
