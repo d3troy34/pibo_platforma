@@ -111,6 +111,15 @@ Las pruebas reales con dinero, reembolsos, cambios de plan, rotación de claves,
 
 No crear una segunda compra y no borrar el evento original para forzar el reintento.
 
+Desde `Administración → Estudiantes`, un administrador puede renovar una
+invitación pendiente o vencida. La renovación reemplaza el token anterior,
+extiende la vigencia por siete días y reenvía el email. Si Resend falla, el
+panel copia un enlace de respaldo para compartirlo manualmente. Esta acción no
+crea una segunda matrícula ni una segunda compra.
+
+El reenvío específico de un correo de compra todavía requiere una acción
+administrativa separada.
+
 ## Reembolsos y contracargos
 
 El sistema todavía no revoca el acceso automáticamente. Antes de activar esa automatización hay que definir y aprobar:
