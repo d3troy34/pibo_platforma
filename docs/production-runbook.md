@@ -26,6 +26,56 @@ Este documento describe cómo operar el puente de compra y qué revisar antes de
 
 Las claves reales nunca deben quedar en el repositorio, en una publicación de prueba, en una captura o en un ticket.
 
+## Endurecimiento de Supabase pendiente
+
+La migración `20260727212058_harden_course_outline_rpc.sql` mueve la lectura
+privilegiada del listado de módulos al esquema `private`. La aplicación sigue
+llamando al mismo RPC público, pero el RPC ya no ejecuta con privilegios del
+dueño de la función.
+
+### Verificación local
+
+Ejecutar en PowerShell desde `D:\Pibo\LMS`, con Docker Desktop iniciado:
+
+```powershell
+npx --yes supabase@latest start
+npx --yes supabase@latest db reset
+npx --yes supabase@latest test db supabase/tests/database.sql
+npx --yes supabase@latest db advisors --local --type security --level warn --fail-on warn
+npx --yes supabase@latest db lint --local --fail-on error
+```
+
+`db reset` sólo reinicia la base local de desarrollo. Si una prueba falla, no
+se debe ejecutar ningún cambio remoto hasta corregirla.
+
+### Preparación y aplicación remota
+
+Después de que las pruebas locales pasen, comprobar primero qué migración se
+aplicaría, sin modificar el proyecto:
+
+```powershell
+npx --yes supabase@latest db push --linked --dry-run
+```
+
+La aplicación real requiere autorización del dueño y acceso al proyecto
+correcto:
+
+```powershell
+npx --yes supabase@latest db push --linked
+npx --yes supabase@latest db advisors --linked --type security --level warn --fail-on warn
+```
+
+No compartir claves ni contraseñas en la terminal grabada. Si el proyecto no
+está vinculado, detenerse y confirmar el `project ref` antes de usar `supabase
+link`.
+
+### Auth y acceso administrativo
+
+En el panel del proyecto, activar la protección contra contraseñas filtradas
+en Authentication → Password Security. Después crear una segunda cuenta
+administradora con un correo distinto y probar que ambas cuentas puedan entrar
+sin compartir contraseñas.
+
 ## Flujo de una compra
 
 1. Stripe recibe el pago y firma el aviso.
