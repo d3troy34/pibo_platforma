@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation"
 
+import { ModuleVisualRoute } from "@/components/course/module-visual-route"
+import { getModuleVisualRoute } from "@/components/course/module-visual-route-data"
 import { VisualRoute } from "@/components/course/visual-route"
 import { createClient } from "@/lib/supabase/server"
 
 export const metadata = {
-  title: "Ruta visual · Módulo 1",
+  title: "Ruta visual · Pibo",
 }
 
 interface VisualRoutePageProps {
@@ -22,9 +24,12 @@ export default async function VisualRoutePage({ params }: VisualRoutePageProps) 
     .eq("is_published", true)
     .maybeSingle()
 
-  // This is the first visual-route prototype. Other modules keep their existing class page
-  // until they receive their own visual narrative rather than a generic copy of this one.
-  if (!module || module.order_index !== 0) notFound()
+  if (!module) notFound()
 
-  return <VisualRoute />
+  if (module.order_index === 0) return <VisualRoute />
+
+  const visualRoute = getModuleVisualRoute(module.order_index)
+  if (!visualRoute) notFound()
+
+  return <ModuleVisualRoute route={visualRoute} />
 }

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { VideoPlayer } from "@/components/video/video-player"
+import { hasVisualRoute } from "@/components/course/module-visual-route-data"
 import { canAccessModule } from "@/lib/access"
 import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -205,16 +206,20 @@ export default async function ModulePage({ params }: ModulePageProps) {
           </div>
         )}
         <ModuleActions moduleId={moduleId} isCompleted={progress?.completed || false} />
-        {courseModule.order_index === 0 && (
+        {hasVisualRoute(courseModule.order_index) && (
           <Link
             href={`/curso/${moduleId}/ruta-visual`}
             className="group relative flex overflow-hidden rounded-[1.25rem] border border-indigo/20 bg-[linear-gradient(110deg,hsl(var(--indigo)/0.1),hsl(var(--pink)/0.08))] px-5 py-4 transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-indigo/40 hover:shadow-glow"
           >
             <span className="absolute bottom-0 left-0 top-0 w-1 bg-pink" />
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold uppercase tracking-[0.17em] text-pink">Nueva forma de recorrer M1</span>
+              <span className="block text-xs font-bold uppercase tracking-[0.17em] text-pink">Ruta visual · M{String(courseModule.order_index + 1).padStart(2, "0")}</span>
               <span className="mt-1 block font-display text-2xl">Abrir la ruta visual</span>
-              <span className="mt-1 block text-sm text-muted-foreground">Ocho pantallas para ordenar tu proyecto antes de seguir.</span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                {courseModule.order_index === 0
+                  ? "Ocho pantallas para ordenar tu proyecto antes de seguir."
+                  : "Siete pantallas breves para recorrer lo esencial antes de seguir."}
+              </span>
             </span>
             <span className="ml-4 flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full bg-white text-indigo transition-transform group-hover:translate-x-1">
               <ArrowRight className="h-5 w-5" />
