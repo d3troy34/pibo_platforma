@@ -25,6 +25,7 @@ El estado del acceso y el estado del correo son independientes. Si Resend falla,
 Los estados que hay que vigilar en `private.purchase_events` son:
 
 - `access_status`: `pending_account`, `active` o `revoked`;
+- `access_revoked_at` y `access_revocation_reason` para saber cuándo y por qué se cortó el acceso;
 - `email_status`: `pending`, `sending`, `sent` o `failed`;
 - `email_attempts` y `email_last_error` para localizar entregas que necesitan un reintento.
 
@@ -38,6 +39,15 @@ Si una compra queda registrada pero el email falla, no hay que crear otra compra
 4. Registrar el webhook de Stripe y confirmar el callback de dLocal sólo si dLocal está habilitado.
 5. Ejecutar las pruebas de compra nueva, cuenta existente, aviso duplicado y correo fallido.
 
+## Reembolsos y contracargos
+
+La web envía una orden firmada con `access_action: revoke`, el identificador
+del evento, el identificador del pago y el motivo `refund` o `dispute`. El LMS
+la procesa con `revoke_purchase_access`, cambia la matrícula a `refunded` o
+`revoked` y marca el evento como `access_status = revoked`. La operación es
+idempotente: repetir el mismo aviso no vuelve a crear ni a modificar una
+segunda matrícula.
+
 ## Operación segura
 
 - No modificar `private.purchase_events` desde el navegador.
@@ -46,4 +56,6 @@ Si una compra queda registrada pero el email falla, no hay que crear otra compra
 - Antes de publicar cambios, ejecutar `npm run check` y las pruebas de base disponibles.
 - Para cambios remotos de Supabase, aplicar primero una migración revisada y comprobar el resultado con una consulta de sólo lectura.
 
-Los reembolsos y contracargos todavía requieren una decisión comercial: el sistema registra el pago, pero no revoca automáticamente el acceso hasta que se defina esa política.
+Los reembolsos aprobados y los contracargos confirmados revocan el acceso
+inmediatamente. Un reembolso parcial queda para revisión manual y no revoca por
+sí solo el curso.

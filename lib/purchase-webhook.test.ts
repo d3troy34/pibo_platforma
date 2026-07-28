@@ -5,6 +5,7 @@ import {
   getPurchaseEmailIdempotencyKey,
   getPurchaseInvitationToken,
   hashInvitationToken,
+  parseAccessRevocationPayload,
   parsePurchasePayload,
   verifyPurchaseWebhookSignature,
 } from "./purchase-webhook"
@@ -72,6 +73,39 @@ describe("purchase webhook contract", () => {
 
     expect(verifyPurchaseWebhookSignature(body, signature, secret)).toBe(true)
     expect(verifyPurchaseWebhookSignature(`${body}\n`, signature, secret)).toBe(false)
+  })
+
+  it("accepts only signed provider revocation actions", () => {
+    expect(parseAccessRevocationPayload({
+      access_action: "revoke",
+      event_id: "evt_refund_1",
+      purchase_id: "pi_refund_1",
+      payment_provider: "stripe",
+      revocation_reason: "refund",
+    })).toEqual({
+      eventId: "evt_refund_1",
+      paymentId: "pi_refund_1",
+      provider: "stripe",
+      reason: "refund",
+    })
+    expect(parseAccessRevocationPayload({
+      access_action: "revoke",
+      event_id: "evt_invalid",
+      purchase_id: "pi_invalid",
+      payment_provider: "stripe",
+      revocation_reason: "unknown",
+    })).toBeNull()
+    expect(parseAccessRevocationPayload({
+      event_id: "evt_purchase",
+      purchase_id: "pi_purchase",
+      payment_provider: "stripe",
+    })).toBeNull()
+    expect(parseAccessRevocationPayload({
+      access_action: "revoke",
+      event_id: "evt_manual",
+      purchase_id: "pi_manual",
+      revocation_reason: "refund",
+    })).toBeNull()
   })
 
   it("derives stable opaque invite tokens and email idempotency keys", () => {

@@ -5,6 +5,7 @@ import {
   getPurchaseEmailIdempotencyKey,
   getPurchaseInvitationToken,
   hashInvitationToken,
+  parseAccessRevocationPayload,
   parsePurchasePayload,
   verifyPurchaseWebhookSignature,
 } from "@/lib/purchase-webhook"
@@ -110,6 +111,35 @@ export async function POST(request: NextRequest) {
     body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 })
+  }
+
+  const revocation = parseAccessRevocationPayload(body)
+  if (revocation) {
+    const { data, error } = await getSupabaseAdmin().rpc("revoke_purchase_access", {
+      revoke_provider: revocation.provider,
+      revoke_event_id: revocation.eventId,
+      revoke_payment_id: revocation.paymentId,
+      revoke_reason: revocation.reason,
+    })
+
+    const accessStatus = data && typeof data === "object"
+      ? (data as Record<string, unknown>).access_status
+      : null
+    if (error || accessStatus !== "revoked") {
+      console.error("Purchase access revocation failed", {
+        provider: revocation.provider,
+        eventId: revocation.eventId,
+        reason: revocation.reason,
+        code: error?.code,
+      })
+      return NextResponse.json({ error: "Access revocation failed" }, { status: 502 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      access_status: "revoked",
+      revocation_reason: revocation.reason,
+    })
   }
 
   const purchase = parsePurchasePayload(body)

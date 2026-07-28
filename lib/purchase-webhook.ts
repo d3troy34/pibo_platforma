@@ -3,6 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto"
 export const COURSE_PRICE_USD = 180
 
 export type PaymentProvider = "stripe" | "dlocal" | "manual"
+export type AccessRevocationReason = "refund" | "dispute"
 
 export interface PurchaseWebhookPayload {
   email: string
@@ -24,6 +25,13 @@ export interface VerifiedPurchase {
   amountUsd: number
   currency: string
   provider: PaymentProvider
+}
+
+export interface VerifiedAccessRevocation {
+  eventId: string
+  paymentId: string
+  provider: PaymentProvider
+  reason: AccessRevocationReason
 }
 
 function normalizeEmail(value: unknown): string | null {
@@ -86,6 +94,26 @@ export function parsePurchasePayload(value: unknown): VerifiedPurchase | null {
     currency,
     provider,
   }
+}
+
+export function parseAccessRevocationPayload(value: unknown): VerifiedAccessRevocation | null {
+  if (!value || typeof value !== "object") return null
+
+  const body = value as Record<string, unknown>
+  if (body.access_action !== "revoke") return null
+
+  const eventId = normalizeIdentifier(body.event_id)
+  const paymentId = normalizeIdentifier(body.purchase_id)
+  const provider = body.payment_provider === "stripe" || body.payment_provider === "dlocal"
+    ? body.payment_provider
+    : null
+  const reason = body.revocation_reason === "refund" || body.revocation_reason === "dispute"
+    ? body.revocation_reason
+    : null
+
+  if (!eventId || !paymentId || !provider || !reason) return null
+
+  return { eventId, paymentId, provider, reason }
 }
 
 export function verifyPurchaseWebhookSignature(
