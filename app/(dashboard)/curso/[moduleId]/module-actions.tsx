@@ -19,12 +19,12 @@ export function ModuleActions({
   const router = useRouter()
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted)
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
 
   // Save progress to database
   const saveProgress = useCallback(
     async (seconds: number, duration: number) => {
       try {
+        const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
@@ -55,13 +55,14 @@ export function ModuleActions({
         console.error("Error saving progress:", error)
       }
     },
-    [moduleId, supabase, isCompleted, router]
+    [moduleId, isCompleted, router]
   )
 
   // Handle manual mark as complete
   const handleMarkComplete = async () => {
     setIsLoading(true)
     try {
+      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 

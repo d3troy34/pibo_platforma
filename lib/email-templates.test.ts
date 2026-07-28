@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  invitationEmail,
   resetPasswordEmail,
   resetPasswordEmailText,
+  welcomeEmail,
 } from "./email-templates"
 
 describe("resetPasswordEmail", () => {
@@ -53,5 +55,22 @@ describe("resetPasswordEmail", () => {
     expect(text).toContain(resetUrl)
     expect(text).toContain("Tu contraseña seguirá siendo la misma.")
     expect(text).not.toContain("<")
+  })
+})
+
+describe("legacy invitation and welcome emails", () => {
+  it("escapes names, emails, and links before embedding them in HTML", () => {
+    const unsafeName = '<img src=x onerror="alert(1)">'
+    const unsafeEmail = 'buyer@example.com" onmouseover="alert(1)'
+    const unsafeUrl = 'https://www.mipibo.com/invite/token&next=" onmouseover="alert(1)'
+
+    const invitation = invitationEmail(unsafeName, unsafeUrl)
+    const welcome = welcomeEmail(unsafeName, unsafeEmail, unsafeUrl)
+
+    expect(invitation).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;")
+    expect(invitation).toContain("token&amp;next=&quot; onmouseover=&quot;alert(1)")
+    expect(invitation).not.toContain('<img src=x onerror="alert(1)">')
+    expect(welcome).toContain("buyer@example.com&quot; onmouseover=&quot;alert(1)")
+    expect(welcome).not.toContain('href="https://www.mipibo.com/invite/token&next="')
   })
 })

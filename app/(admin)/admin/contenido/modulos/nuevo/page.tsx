@@ -44,7 +44,6 @@ function createModuleSlug(title: string): string {
 export default function NuevoModuloPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const {
     register,
@@ -69,6 +68,7 @@ export default function NuevoModuloPage() {
   const onSubmit = async (data: ModuleForm) => {
     setIsLoading(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase.from("modules").insert({
         title: data.title,
         slug: createModuleSlug(data.title),

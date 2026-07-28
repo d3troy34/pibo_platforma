@@ -29,7 +29,6 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const supabase = createClient()
   const redirectTo = getSafeInternalPath(searchParams.get("redirect"), "/curso")
   const authError = searchParams.get("error")
   const authErrorMessage =
@@ -52,6 +51,7 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
+      const supabase = createClient()
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: values.email.trim().toLowerCase(),
         password: values.password,

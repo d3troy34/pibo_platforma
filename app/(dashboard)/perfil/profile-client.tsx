@@ -73,7 +73,6 @@ export function ProfileClient({ initialProfile, initialEnrollment }: ProfileClie
   const router = useRouter()
   const [profile, setProfile] = useState(initialProfile)
   const [isSaving, setIsSaving] = useState(false)
-  const supabase = createClient()
 
   const {
     register,
@@ -93,6 +92,7 @@ export function ProfileClient({ initialProfile, initialEnrollment }: ProfileClie
     setIsSaving(true)
 
     try {
+      const supabase = createClient()
       const updates = {
         full_name: values.full_name.trim(),
         phone: values.phone?.trim() || null,

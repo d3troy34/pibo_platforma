@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(128);
+select plan(130);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'profile_directory', 'chat-safe profile directory exists');
@@ -125,12 +125,25 @@ select ok(
   'mark message read runs with the caller permissions'
 );
 select ok(
-  (
+  not (
     select procedure.prosecdef
     from pg_proc as procedure
     where procedure.oid = 'public.get_course_modules_outline()'::regprocedure
   ),
-  'course outline keeps its intentional sanitized privileged read'
+  'course outline public wrapper runs with caller permissions'
+);
+select ok(
+  (
+    select procedure.prosecdef
+    from pg_proc as procedure
+    where procedure.oid = 'private.get_course_modules_outline()'::regprocedure
+  ),
+  'course outline privileged read stays isolated in the private schema'
+);
+select ok(
+  not has_function_privilege('anon', 'public.get_course_modules_outline()', 'EXECUTE')
+  and has_function_privilege('authenticated', 'public.get_course_modules_outline()', 'EXECUTE'),
+  'course outline RPC is callable only by authenticated users'
 );
 select ok(
   has_column_privilege('authenticated', 'public.direct_messages', 'read_at', 'UPDATE'),

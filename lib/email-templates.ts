@@ -293,6 +293,10 @@ Pibo · Tu camino a Argentina`
 }
 
 export function welcomeEmail(fullName: string, email: string, resetUrl: string): string {
+  const safeFullName = escapeHtml(fullName)
+  const safeEmail = escapeHtml(email)
+  const safeResetUrl = escapeHtml(resetUrl)
+
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -302,7 +306,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
   <body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0F172A; color: #F0F9FF; padding: 40px 20px; margin: 0;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #1E293B; border-radius: 12px; padding: 40px;">
       <h1 style="color: #7DD3FC; margin-bottom: 24px; font-size: 28px;">
-        Bienvenido a Mipibo, ${fullName}!
+        Bienvenido a Mipibo, ${safeFullName}!
       </h1>
 
       <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
@@ -315,7 +319,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
         </h2>
 
         <p style="margin: 8px 0; color: #F0F9FF;">
-          <strong>Email:</strong> ${email}
+          <strong>Email:</strong> ${safeEmail}
         </p>
 
         <p style="margin: 12px 0; color: #CBD5E1; font-size: 14px;">
@@ -323,7 +327,7 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
         </p>
       </div>
 
-      <a href="${resetUrl}"
+      <a href="${safeResetUrl}"
          style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
         Configurar Contrasena
       </a>
@@ -347,6 +351,9 @@ export function welcomeEmail(fullName: string, email: string, resetUrl: string):
 }
 
 export function invitationEmail(fullName: string | undefined, inviteUrl: string): string {
+  const safeFullName = fullName ? escapeHtml(fullName) : ""
+  const safeInviteUrl = escapeHtml(inviteUrl)
+
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -359,7 +366,7 @@ export function invitationEmail(fullName: string | undefined, inviteUrl: string)
         Bienvenido a Mipibo
       </h1>
 
-      ${fullName ? `<p style="margin-bottom: 16px;">Hola ${fullName},</p>` : ""}
+      ${safeFullName ? `<p style="margin-bottom: 16px;">Hola ${safeFullName},</p>` : ""}
 
       <p style="margin-bottom: 24px; line-height: 1.6; color: #CBD5E1;">
         Has sido invitado a unirte a Mipibo, tu plataforma de preparacion para universidades argentinas.
@@ -369,7 +376,7 @@ export function invitationEmail(fullName: string | undefined, inviteUrl: string)
         Haz clic en el boton de abajo para completar tu registro y acceder al curso:
       </p>
 
-      <a href="${inviteUrl}"
+      <a href="${safeInviteUrl}"
          style="display: inline-block; background: linear-gradient(to right, #60A5FA, #22D3EE); color: #0F172A; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 32px;">
         Aceptar Invitacion
       </a>

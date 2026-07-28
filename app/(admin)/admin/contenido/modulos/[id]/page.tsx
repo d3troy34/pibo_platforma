@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -50,7 +50,6 @@ export default function EditModuloPage() {
   const [resources, setResources] = useState<ModuleResource[]>([])
   const router = useRouter()
   const params = useParams<{ id: string }>()
-  const supabase = useMemo(() => createClient(), [])
 
   const {
     register,
@@ -67,6 +66,7 @@ export default function EditModuloPage() {
 
   useEffect(() => {
     const fetchModule = async () => {
+      const supabase = createClient()
       const { data: moduleData } = await supabase
         .from("modules")
         .select("*")
@@ -88,11 +88,12 @@ export default function EditModuloPage() {
     }
 
     fetchModule()
-  }, [params.id, reset, supabase])
+  }, [params.id, reset])
 
   const onSubmit = async (data: ModuleForm) => {
     setIsLoading(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase.from("modules")
         .update({
           title: data.title,
@@ -119,6 +120,7 @@ export default function EditModuloPage() {
   const handleDeleteModule = async () => {
     setIsDeleting(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase.from("modules")
         .delete()
         .eq("id", params.id)
@@ -160,6 +162,7 @@ export default function EditModuloPage() {
       const newResources = [...resources, result.resource]
       setResources(newResources)
 
+      const supabase = createClient()
       await supabase.from("modules")
         .update({ resources: newResources })
         .eq("id", params.id)
@@ -186,6 +189,7 @@ export default function EditModuloPage() {
       const newResources = resources.filter((_, i) => i !== index)
       setResources(newResources)
 
+      const supabase = createClient()
       await supabase.from("modules")
         .update({ resources: newResources })
         .eq("id", params.id)
