@@ -492,6 +492,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      revoke_purchase_access: {
+        Args: {
+          revoke_provider: "stripe" | "dlocal" | "manual"
+          revoke_event_id: string
+          revoke_payment_id: string
+          revoke_reason: "refund" | "dispute" | "manual"
+        }
+        Returns: Json
+      }
       consume_rate_limit: {
         Args: {
           limit_rate_key: string

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(130);
+select plan(137);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'profile_directory', 'chat-safe profile directory exists');
@@ -319,6 +319,22 @@ select ok(
   not has_function_privilege('authenticated', 'public.fail_purchase_email(text,text,text)', 'EXECUTE'),
   'authenticated users cannot fail purchase emails'
 );
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.revoke_purchase_access(text,text,text,text)',
+    'EXECUTE'
+  ),
+  'service role can revoke paid access'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.revoke_purchase_access(text,text,text,text)',
+    'EXECUTE'
+  ),
+  'authenticated users cannot revoke paid access'
+);
 
 insert into auth.users (
   instance_id,
@@ -630,6 +646,53 @@ select is(
   ),
   'active',
   'the purchase event records active access after account creation'
+);
+select is(
+  public.revoke_purchase_access(
+    'stripe',
+    'stripe-charge-refunded-1',
+    'payment-new-buyer',
+    'refund'
+  )->>'access_status',
+  'revoked',
+  'a verified refund revokes access'
+);
+select is(
+  (
+    select payment_status
+    from public.enrollments
+    where user_id = '00000000-0000-0000-0000-000000000005'
+  ),
+  'refunded',
+  'a refund marks the enrollment as refunded'
+);
+select is(
+  (
+    select access_status
+    from private.purchase_events
+    where provider = 'stripe' and provider_event_id = 'checkout-new-buyer'
+  ),
+  'revoked',
+  'the purchase event records revoked access'
+);
+select is(
+  (
+    select access_revocation_reason
+    from private.purchase_events
+    where provider = 'stripe' and provider_event_id = 'checkout-new-buyer'
+  ),
+  'refund',
+  'the purchase event records the revocation reason'
+);
+select is(
+  public.revoke_purchase_access(
+    'stripe',
+    'stripe-charge-refunded-1',
+    'payment-new-buyer',
+    'refund'
+  )->>'already_revoked',
+  'true',
+  'replayed refund events remain idempotent'
 );
 
 set local role service_role;

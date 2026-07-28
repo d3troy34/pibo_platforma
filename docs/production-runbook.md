@@ -87,6 +87,14 @@ sin compartir contraseñas.
 7. El correo se envía con una clave de idempotencia estable.
 8. Si Resend falla, la compra queda guardada y el aviso debe reintentarse.
 
+## Revocación por reembolso o contracargo
+
+1. Stripe envía `charge.refunded` o `charge.dispute.created` al webhook firmado.
+2. La web identifica el `payment_intent` y envía una orden firmada al LMS.
+3. El LMS marca la matrícula como `refunded` o `revoked` y corta el acceso de inmediato.
+4. Un reembolso parcial no revoca automáticamente y requiere una decisión administrativa.
+5. Si el LMS responde con error, Stripe debe reintentar; no hay que crear una segunda compra.
+
 ## Pruebas antes de abrir ventas
 
 - [ ] Compra de prueba con email nuevo.
@@ -122,12 +130,11 @@ administrativa separada.
 
 ## Reembolsos y contracargos
 
-El sistema todavía no revoca el acceso automáticamente. Antes de activar esa automatización hay que definir y aprobar:
-
-- cuándo se revoca el acceso;
-- si se conserva el progreso;
-- qué ocurre con un reembolso parcial;
-- qué mensaje recibe el alumno;
+La política operativa publicada establece respuesta en hasta 2 días hábiles,
+inicio del reembolso en hasta 3 días hábiles cuando se aprueba y acreditación
+según el medio de pago, que puede demorar hasta 10 días hábiles. El acceso se
+mantiene mientras la solicitud está en revisión y se revoca inmediatamente al
+aprobar el reembolso o confirmar el contracargo.
 - quién revisa una disputa.
 
 Hasta tomar esa decisión, cada reembolso requiere revisión manual y registro interno.
