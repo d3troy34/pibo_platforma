@@ -4,6 +4,7 @@ import Script from "next/script"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "next-themes"
+import { SITE_URL } from "@/lib/site"
 
 const geist = localFont({
   src: "./fonts/GeistVF.woff",
@@ -12,32 +13,43 @@ const geist = localFont({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Pibo - Plataforma Educativa | Estudia en Argentina",
+    default: "Pibo — Plataforma de estudiantes",
     template: "%s | Pibo",
   },
-  description: "Accede a tu masterclass de Pibo. Clases en video paso a paso, guías PDF, comunidad de estudiantes y soporte personalizado para estudiar en universidades argentinas.",
-  keywords: ["pibo", "plataforma educativa", "estudiar en argentina", "masterclass", "universidad argentina", "visa estudiante", "trámites migratorios", "cursos online", "UBA extranjeros"],
+  description:
+    "Plataforma donde los estudiantes de Pibo cursan la masterclass para estudiar en Argentina: clases en video, guías en PDF, comunidad y soporte personalizado.",
   authors: [{ name: "Pibo" }],
   icons: {
     icon: "/brand/pibo-mark.png",
     apple: "/brand/pibo-mark.png",
   },
+  /**
+   * Noindex is the default for the entire app because every route below this
+   * layout sits behind authentication (see middleware.ts). Indexing a login wall
+   * produces thin pages that compete with estudiaargentina.com for the same
+   * brand queries while offering a crawler nothing to read.
+   *
+   * The public landing in app/page.tsx opts back in explicitly, so any new
+   * private route inherits noindex without anyone having to remember.
+   */
   robots: {
-    index: true,
-    follow: true,
+    index: false,
+    follow: false,
   },
   openGraph: {
-    title: "Pibo - Plataforma Educativa | Estudia en Argentina",
-    description: "Accede a tu masterclass de Pibo. Clases en video, guías PDF, comunidad y soporte personalizado.",
+    title: "Pibo — Plataforma de estudiantes",
+    description:
+      "Acceso de estudiantes a la masterclass de Pibo: clases en video, guías en PDF, comunidad y soporte.",
     type: "website",
     locale: "es_AR",
     siteName: "Pibo",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pibo - Plataforma Educativa | Estudia en Argentina",
-    description: "Masterclass paso a paso para estudiar en universidades argentinas.",
+    title: "Pibo — Plataforma de estudiantes",
+    description: "Acceso de estudiantes a la masterclass de Pibo.",
   },
 }
 

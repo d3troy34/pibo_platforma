@@ -13,6 +13,20 @@ const protectedRoutes = [
 const adminRoutes = ["/admin"]
 const authRoutes = ["/login", "/register", "/reset-password"]
 
+/**
+ * Every path prefix that is not part of the public, indexable surface.
+ * app/robots.ts derives its disallow list from this so a new private route can
+ * never be added to the app while staying crawlable by accident.
+ */
+export const NON_PUBLIC_ROUTE_PREFIXES = [
+  ...protectedRoutes,
+  ...adminRoutes,
+  ...authRoutes,
+  "/invite",
+  "/auth",
+  "/api",
+]
+
 export function getSafeInternalPath(
   value: string | null | undefined,
   fallback: string
